@@ -1,0 +1,269 @@
+//Keegan
+//Color Converter
+//colorConverter
+//none
+//colorConverter
+//utility
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 1.0
+
+Function: Converts Maya RGB and HEX color values.
+
+Last Updated: (09/24/05)
+
+Install
+	1. Move colorConverter.mel to you Maya scripts directory.
+	2. Type "colorConverter" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.	
+*/
+
+global proc colorConverter()
+	{
+		if(`window -q -ex HEXtoRGBui`)
+			deleteUI HEXtoRGBui;
+		
+		window -t "RGB/Hex converter" HEXtoRGBui;
+			columnLayout -adj 1 baseColumn;
+				frameLayout Hex;
+					textField -ann "Hex value" HEXfield;
+			setParent baseColumn;
+				frameLayout RGB;
+					string $RBGlayout = `formLayout`;
+						string $r = `floatField -ann "Red Value" rField`;
+						string $g = `floatField -ann "Green Value" gField`;
+						string $b = `floatField -ann "Blue Value" bField`;
+					
+						formLayout
+							-edit
+					
+							-af $r "left" 0
+							-af $r "bottom" 0
+							-af $r "top" 0
+							-ap $r "right" 0 33
+						
+							-ac $g "left" 0 $r
+							-af $g "bottom" 0
+							-af $g "top" 0
+							-ac $g "right" 0 $b
+							
+							-ap $b "left" 0 66
+							-af $b "bottom" 0
+							-af $b "top" 0
+							-af $b "right" 0
+							
+							$RBGlayout;
+			setParent baseColumn;
+				string $RBGlayout = `formLayout`;
+				
+					string $b1 = `columnLayout -adj 1`;
+						button -l "HEX >> RGB" -h 44 -c HEXtoRGBbutt -ann "Convert Hex to RGB color";
+						button -l "Set Attributes" -c "setAttrRGB" -ann "Select 3 attributes to set values on";
+					setParent $RBGlayout;
+					
+					string $b2 = `columnLayout -adj 1`;
+						button -l "RGB >> HEX" -h 44 -c RGBtoHEXbutt -ann "Convert RGB to Hex color";
+						button -l "Get Attributes" -c "getAttrRGB" -ann "Select 3 attributes to draw values from";
+					
+					formLayout
+						-edit
+					
+						-af $b1 "left" 0
+						-af $b1 "bottom" 0
+						-af $b1 "top" 0
+						-ap $b1 "right" 0 50
+						
+						-ap $b2 "left" 0 50
+						-af $b2 "bottom" 0
+						-af $b2 "top" 0
+						-af $b2 "right" 0
+						
+						$RBGlayout;
+			setParent baseColumn;
+				button -l "Close" -c "deleteUI HEXtoRGBui" -ann "Close window";
+				
+		window -edit -wh 223 200 HEXtoRGBui;
+		showWindow HEXtoRGBui;
+	}
+
+global proc RGBtoHEXbutt()
+{
+float $r = 	`floatField -q -v rField`*255;
+float $g = 	`floatField -q -v gField`*255;
+float $b = 	`floatField -q -v bField`*255;
+
+string $v1 = `RGBToHEX $r`;
+string $v2 = `RGBToHEX $g`;
+string $v3 = `RGBToHEX $b`;
+
+textField -edit -tx ($v1 + $v2 + $v3) HEXfield;
+}
+
+global proc HEXtoRGBbutt()
+{
+string $text = `textField -q -tx HEXfield`;
+vector $rgb = `HEXtoRGB $text`;
+
+floatField -edit -v (($rgb.x)/255) rField;
+floatField -edit -v (($rgb.y)/255) gField;
+floatField -edit -v (($rgb.z)/255) bField;
+}
+	
+global proc string RGBToHEX (float $v)
+	{
+		float $numInto16 = `floor ($v/16)`;
+
+		string $v1 = `convertToHex $numInto16`;
+		string $v2 = `convertToHex ($v-$numInto16*16)`;
+		
+		return $v1 + $v2;
+	}
+
+global proc setAttrRGB()
+{
+float $r = 	`floatField -q -v rField`;
+float $g = 	`floatField -q -v gField`;
+float $b = 	`floatField -q -v bField`;
+
+string $obj[] = `channelBox -q -mol mainChannelBox`;
+string $attr[] = `channelBox -q -sma mainChannelBox`;
+
+setAttr ($obj[0] + "." + $attr[0]) $r;
+setAttr ($obj[0] + "." + $attr[1]) $g;
+setAttr ($obj[0] + "." + $attr[2]) $b;
+}
+
+global proc getAttrRGB()
+{
+string $obj[] = `channelBox -q -mol mainChannelBox`;
+string $attr[] = `channelBox -q -sma mainChannelBox`;
+
+float $r = 	`getAttr ($obj[0] + "." + $attr[0])`;
+float $g = 	`getAttr ($obj[0] + "." + $attr[1])`;
+float $b = 	`getAttr ($obj[0] + "." + $attr[2])`;
+
+floatField -edit -v $r rField;
+floatField -edit -v $g gField;
+floatField -edit -v $b bField;
+}
+
+global proc string convertToHex (int $v)
+	{
+		string $r;
+		
+		if($v<10)
+			$r = $v;
+		
+		if($v == 10)
+			$r = "A";
+		
+		if($v == 11)
+			$r = "B";
+		
+		if($v == 12)
+			$r = "C";
+		
+		if($v == 13)
+			$r = "D";
+		
+		if($v == 14)
+			$r = "E";
+		
+		if($v == 15)
+			$r = "F";
+		
+		return $r;
+	}
+
+global proc vector HEXtoRGB (string $v)
+	{
+		string $char[];
+		
+		for($i=1; $i<7; $i++)
+			$char[size($char)] = `substring $v $i $i`;
+		
+		float $R = `convertToRGB $char[0] $char[1]`;
+		float $G = `convertToRGB $char[2] $char[3]`;
+		float $B = `convertToRGB $char[4] $char[5]`;
+			
+		vector $rgb = <<$R, $G, $B>>;
+		
+		return $rgb;
+	}
+	
+global proc int convertToRGB (string $i1, string $i2)
+	{
+		int $v, $v1, $v2;
+	
+		int $v1 = `convertValue $i1 1`;
+		int $v2 = `convertValue $i2 0`;
+			
+		int $v = $v1 + $v2;
+			
+		return $v;
+	}
+	
+global proc int convertValue (string $v, int $num)
+	{
+		int $j, $r, $newV;
+		
+		if($v == "A")
+			{
+				$newV = 10;
+				$j = 1;
+			}
+		
+		if($v == "B")
+			{
+				$newV = 11;
+				$j = 1;
+			}
+		
+		if($v == "C")
+			{
+				$newV = 12;
+				$j = 1;
+			}
+		
+		if($v == "D")
+			{
+				$newV = 13;
+				$j = 1;
+			}
+		
+		if($v == "E")
+			{
+				$newV = 14;
+				$j = 1;
+			}
+		
+		if($v == "F")
+			{
+				$newV = 15;
+				$j = 1;
+			}
+		
+		if($j == 0)
+			{
+				int $vToInt = $v;
+				$newV = $v;
+			}
+		
+		if($num)
+			$r = $newV * 16;
+		
+		else
+			$r = $newV;
+		
+		return $r;
+	}

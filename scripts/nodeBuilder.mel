@@ -1,0 +1,439 @@
+//Keegan
+//Node Builder
+//nodeBuilder
+//none
+//nodeBuilder
+//utility
+/*
+Node Builder
+	
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+
+Version: 1.5
+
+Last Modified: (01-27-2004)
+
+Function: Builds Nodes to exported into a game engine. 
+
+To be used with the Keegan Installer move keeganShelf to 
+your icons directory.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+
+global proc nodeBuilder()
+{
+string $imagepath = `internalVar -ubd`;
+
+//window
+	string $nodeNum;
+	string $result = `promptDialog
+			-title "Node Builder"
+			-message "Enter the node number"
+			-button "OK"
+			-button "Cancel"
+			-defaultButton "OK"
+			-cancelButton "Cancel"
+			-dismissString "Cancel"`;
+	if ($result == "OK")
+		{
+			$nodeNum = ` promptDialog -query`;
+	
+//faces
+		string $sky[] =`polyPlane -n ( "skyFace_Node_" + $nodeNum ) -w 1 -h 1 -sx 1 -sy 1 -ax 0 1 0 -tx 1 -ch 1`;
+		string $ground[] =`polyPlane -n ( "groundFace_Node_" + $nodeNum  ) -w 1 -h 1 -sx 1 -sy 1 -ax 0 1 0 -tx 1 -ch 1`;
+		string $south[] =`polyPlane -n ( "southFace_Node_" + $nodeNum  ) -w 1 -h 1 -sx 1 -sy 1 -ax 0 0 1 -tx 1 -ch 1`;
+		string $north[] =`polyPlane -n ( "northFace_Node_" + $nodeNum  ) -w 1 -h 1 -sx 1 -sy 1 -ax 0 0 1 -tx 1 -ch 1`;
+		string $east[] =`polyPlane -n ( "eastFace_Node_" + $nodeNum  ) -w 1 -h 1 -sx 1 -sy 1 -ax 1 0 0 -tx 1 -ch 1`;
+		string $west[] =`polyPlane -n ( "westFace_Node_" + $nodeNum  ) -w 1 -h 1 -sx 1 -sy 1 -ax 1 0 0 -tx 1 -ch 1`;
+		
+//cameras
+		string $skyCam[] = `camera -n "skyCam_" -centerOfInterest 5 -focalLength 12 -lensSqueezeRatio 1 -cameraScale 1 -horizontalFilmAperture 1.41732 -horizontalFilmOffset 0 -verticalFilmAperture 0.94488 -verticalFilmOffset 0 -filmFit Fill`;
+		string $groundCam[] = `camera -n "groundCam_" -centerOfInterest 5 -focalLength 12 -lensSqueezeRatio 1 -cameraScale 1 -horizontalFilmAperture 1.41732 -horizontalFilmOffset 0 -verticalFilmAperture 0.94488 -verticalFilmOffset 0 -filmFit Fill`;
+		string $southCam[] = `camera -n "southCam_" -centerOfInterest 5 -focalLength 12 -lensSqueezeRatio 1 -cameraScale 1 -horizontalFilmAperture 1.41732 -horizontalFilmOffset 0 -verticalFilmAperture 0.94488 -verticalFilmOffset 0 -filmFit Fill`;
+		string $northCam[] = `camera -n "northCam_" -centerOfInterest 5 -focalLength 12 -lensSqueezeRatio 1 -cameraScale 1 -horizontalFilmAperture 1.41732 -horizontalFilmOffset 0 -verticalFilmAperture 0.94488 -verticalFilmOffset 0 -filmFit Fill`;
+		string $eastCam[] = `camera -n "eastCam_" -centerOfInterest 5 -focalLength 12 -lensSqueezeRatio 1 -cameraScale 1 -horizontalFilmAperture 1.41732 -horizontalFilmOffset 0 -verticalFilmAperture 0.94488 -verticalFilmOffset 0 -filmFit Fill`;
+		string $westCam[] = `camera -n "westCam_" -centerOfInterest 5 -focalLength 12 -lensSqueezeRatio 1 -cameraScale 1 -horizontalFilmAperture 1.41732 -horizontalFilmOffset 0 -verticalFilmAperture 0.94488 -verticalFilmOffset 0 -filmFit Fill`;
+
+//camera position
+		setAttr ( $skyCam[0] + ".rotateX" ) 90;	
+		setAttr ( $groundCam[0] + ".rotateX" ) -90;	
+		setAttr ( $southCam[0] + ".rotateY" ) 180;
+		setAttr ( $westCam[0] + ".rotateY" ) 90;
+		setAttr ( $eastCam[0] + ".rotateY" ) -90;
+		
+//camera scale & grouping
+		select -r $skyCam $groundCam $northCam $eastCam $southCam $westCam;
+		string $CamGrp = `group -n ( "Cameras_Node_" + $nodeNum )`; 
+		xform -os -piv 0 0 0;
+		setAttr ( $CamGrp + ".scaleX" ) 0.05;
+		setAttr ( $CamGrp + ".scaleY" ) 0.05;
+		setAttr ( $CamGrp + ".scaleZ" ) 0.05;
+
+//face position
+		setAttr ( $sky[0]+ ".translateY" ) 0.5;
+		setAttr ( $ground[0]+ ".translateY" ) -0.5;
+		setAttr ( $north[0]+ ".translateZ" ) -0.5;
+		setAttr ( $west[0]+ ".translateX" ) -0.5;
+		setAttr ( $south[0]+ ".translateZ" ) 0.5;
+		setAttr ( $east[0]+ ".translateX" ) 0.5;
+//pivot point
+		move -xyz 0 0 0( $sky[0] + ".scalePivot" ) ( $sky[0] + ".rotatePivot") ;
+		move -xyz 0 0 0( $ground[0] + ".scalePivot" ) ( $ground[0] + ".rotatePivot") ;
+		move -xyz 0 0 0( $north[0] + ".scalePivot" ) ( $north[0] + ".rotatePivot") ;
+		move -xyz 0 0 0( $west[0] + ".scalePivot" ) ( $west[0] + ".rotatePivot") ;
+		move -xyz 0 0 0( $south[0] + ".scalePivot" ) ( $south[0] + ".rotatePivot") ;
+		move -xyz 0 0 0( $east[0] + ".scalePivot" ) ( $east[0] + ".rotatePivot") ;
+//position		
+		setAttr ( $south[0]+ ".scaleX" ) -1;
+		setAttr ( $east[0]+ ".scaleZ" ) -1;
+		setAttr ( $sky[0]+ ".scaleZ" ) -1;
+
+		
+//gouping, Make Identity & delete history
+		select -r $sky $ground $north $east $south $west;
+		makeIdentity -a true -t true -r true -s true ;
+		delete -ch;
+		string $node = `group -n ( "Node_" + $nodeNum )`; 
+		xform -os -piv 0 0 0;
+		
+//texture
+		string $skyT = `shadingNode -asShader -n ( "skyFace_Node_" + $nodeNum + "_shader" ) lambert`;
+		string $groundT = `shadingNode -asShader -n ( "groundFace_Node_" + $nodeNum + "_shader" ) lambert`;
+		string $northT = `shadingNode -asShader -n ( "northFace_Node_" + $nodeNum + "_shader" ) lambert`;
+		string $eastT = `shadingNode -asShader -n ( "eastFace_Node_" + $nodeNum + "_shader" ) lambert`;
+		string $southT =`shadingNode -asShader -n ( "southFace_Node_" + $nodeNum + "_shader" ) lambert`;
+		string $westT = `shadingNode -asShader -n ( "westFace_Node_" + $nodeNum + "_shader" ) lambert`;
+		
+//color
+		importImageFile($imagepath + "sky.tif", false, false, true);
+		importImageFile($imagepath + "ground.tif", false, false, true);
+		importImageFile($imagepath + "north.tif", false, false, true);
+		importImageFile($imagepath + "south.tif", false, false, true);
+		importImageFile($imagepath + "east.tif", false, false, true);
+		importImageFile($imagepath + "west.tif", false, false, true);
+
+
+		connectAttr -force sky_1.outColor ( $skyT + ".color" );
+		connectAttr -force ground_1.outColor ( $groundT + ".color" );
+		connectAttr -force north_1.outColor ( $northT + ".color" );
+		connectAttr -force east_1.outColor ( $eastT + ".color" );
+		connectAttr -force south_1.outColor ( $southT + ".color" );
+		connectAttr -force west_1.outColor ( $westT + ".color" );
+		
+		
+//connecting the textures
+		select -r $sky[0];
+		hyperShade -assign $skyT;
+		select -cl;
+		
+		select -r $ground[0];
+		hyperShade -assign $groundT;
+		select -cl;
+		
+		select -r $north[0];
+		hyperShade -assign $northT;
+		select -cl;
+		
+		select -r $east[0];
+		hyperShade -assign $eastT;
+		select -cl;
+		
+		select -r $south[0];
+		hyperShade -assign $southT;
+		select -cl;
+		
+		select -r $west[0];
+		hyperShade -assign $westT;
+		select -cl;
+				
+//frame selected
+		select -r $node;
+		fitPanel -selected;
+		select -cl;
+		
+//window
+	int $cellWH = 200;
+	
+	if ( `window -exists nodeBuilderUI`)
+		deleteUI nodeBuilderUI;
+			
+	window -resizeToFitChildren on -t "Node Builder" -s 0 nodeBuilderUI;
+	
+		string $nodeForm = `formLayout -numberOfDivisions 100`;
+//imageLoader Views
+		string $imgLoad = `columnLayout -adjustableColumn true -rowSpacing 5`;
+		
+//persp
+		string $perspView = `formLayout -numberOfDivisions 100`;
+		string $perspCam = `paneLayout -configuration single`;
+		string $modEdit1 = `modelEditor
+		               -displayAppearance smoothShaded
+					   -displayTextures 1
+			           -allObjects 0
+		               -polymeshes 1
+		               -grid 0`;
+		
+				modelEditor -edit -camera persp $modEdit1;
+				formLayout
+					-edit
+		
+					-w 100
+					-h 303
+		
+					-af $perspCam "left" 0
+					-af $perspCam "top" 0
+					-af $perspCam "bottom" 0
+					-af $perspCam "right" 0
+		
+					$perspView;
+				setParent..;
+				setParent..;
+		
+		button -h 50 -l "Sky Texture" -c ( "select -r " + $sky[0] + ";skyTexture" );
+		button -h 50 -l "Ground Texture" -c ( "select -r " + $ground[0] + ";groundTexture" );
+		button -h 50 -l "North Texture" -c ( "select -r " + $north[0] + ";northTexture" );
+		button -h 50 -l "East Texture" -c ( "select -r " + $east[0] + ";eastTexture" );
+		button -h 50 -l "South Texture" -c ( "select -r " + $south[0] + ";southTexture" );
+		button -h 50 -l "West Texture" -c ( "select -r " + $west[0] + ";westTexture" );
+		
+		
+		setParent ..;
+		
+		
+//camera Views
+		string $camViews = `gridLayout -numberOfColumns 4 -cellWidthHeight $cellWH $cellWH`;
+		
+		picture -en 0 -i ($imagepath + "nodeBuilderIcon.xpm");
+//sky
+		string $skyView = `formLayout -numberOfDivisions 100`;
+		string $skyCamW = `paneLayout -configuration single`;
+		string $modEdit1 = `modelEditor
+		               -displayAppearance smoothShaded
+					   -displayTextures 1
+			           -allObjects 0
+		               -polymeshes 1
+		               -grid 0`;
+		
+				modelEditor -edit -camera $skyCam $modEdit1;
+				formLayout
+					-edit
+		
+					-w $cellWH
+					-h $cellWH
+		
+					-af $skyCamW "left" 0
+					-af $skyCamW "top" 0
+					-af $skyCamW "bottom" 0
+					-af $skyCamW "right" 0
+		
+					$skyView;
+				setParent..;
+				setParent..;
+				
+		text " ";
+		text " ";
+//north
+		string $northView = `formLayout -numberOfDivisions 100`;
+		string $northCamW = `paneLayout -configuration single`;
+		string $modEdit2 = `modelEditor
+		               -displayAppearance smoothShaded
+					   -displayTextures 1
+			           -allObjects 0
+		               -polymeshes 1
+		               -grid 0`;
+		
+				modelEditor -edit -camera $northCam $modEdit2;
+				formLayout
+					-edit
+		
+					-w $cellWH
+					-h $cellWH
+		
+					-af $northCamW "left" 0
+					-af $northCamW "top" 0
+					-af $northCamW "bottom" 0
+					-af $northCamW "right" 0
+		
+					$northView;
+				setParent..;
+				setParent..;
+//east
+		string $eastView = `formLayout -numberOfDivisions 100`;
+		string $eastCamW = `paneLayout -configuration single`;
+		string $modEdit3 = `modelEditor
+		               -displayAppearance smoothShaded
+					   -displayTextures 1
+			           -allObjects 0
+		               -polymeshes 1
+		               -grid 0`;
+		
+				modelEditor -edit -camera $eastCam $modEdit3;
+				formLayout
+					-edit
+		
+					-w $cellWH
+					-h $cellWH
+		
+					-af $eastCamW "left" 0
+					-af $eastCamW "top" 0
+					-af $eastCamW "bottom" 0
+					-af $eastCamW "right" 0
+		
+					$eastView;
+				setParent..;
+				setParent..;
+//south
+		string $southView = `formLayout -numberOfDivisions 100`;
+		string $southCamW = `paneLayout -configuration single`;
+		string $modEdit4 = `modelEditor
+		               -displayAppearance smoothShaded
+					   -displayTextures 1
+			           -allObjects 0
+		               -polymeshes 1
+		               -grid 0`;
+		
+				modelEditor -edit -camera $southCam $modEdit4;
+				formLayout
+					-edit
+		
+					-w $cellWH
+					-h $cellWH
+		
+					-af $southCamW "left" 0
+					-af $southCamW "top" 0
+					-af $southCamW "bottom" 0
+					-af $southCamW "right" 0
+		
+					$southView;
+				setParent..;
+				setParent..;
+		//west
+		string $westView = `formLayout -numberOfDivisions 100`;
+		string $westCamW = `paneLayout -configuration single`;
+		string $modEdit5 = `modelEditor
+		               -displayAppearance smoothShaded
+					   -displayTextures 1
+			           -allObjects 0
+		               -polymeshes 1
+		               -grid 0`;
+		
+				modelEditor -edit -camera $westCam $modEdit5;
+				formLayout
+					-edit
+		
+					-w $cellWH
+					-h $cellWH
+		
+					-af $westCamW "left" 0
+					-af $westCamW "top" 0
+					-af $westCamW "bottom" 0
+					-af $westCamW "right" 0
+		
+					$westView;
+				setParent..;
+				setParent..;
+		text " ";
+//ground
+		string $groundView = `formLayout -numberOfDivisions 100`;
+		string $groundCamW = `paneLayout -configuration single`;
+		string $modEdit6 = `modelEditor
+		               -displayAppearance smoothShaded
+					   -displayTextures 1
+			           -allObjects 0
+		               -polymeshes 1
+		               -grid 0`;
+		
+				modelEditor -edit -camera $groundCam $modEdit6;
+				formLayout
+					-edit
+		
+					-w $cellWH
+					-h $cellWH
+		
+					-af $groundCamW "left" 0
+					-af $groundCamW "top" 0
+					-af $groundCamW "bottom" 0
+					-af $groundCamW "right" 0
+		
+					$groundView;
+				setParent..;
+				setParent..;
+		text " ";
+		text " ";
+		
+		setParent ..;
+		
+//done Button
+		string $doneButt = `columnLayout -adjustableColumn true`;
+		button -l "Done" -h 30 -annotation "When all your textures are loaded press this button" -c ( "select -r " + $CamGrp + ";delete" + ";deleteUI nodeBuilderUI" );
+		setParent..;
+		
+		        formLayout
+		                -edit
+						
+		                -af $imgLoad "top" 2
+		                -attachControl $imgLoad left 2 $camViews
+		                -af $imgLoad "right" 2
+		                -af $imgLoad "bottom" 2
+		
+		                -af $camViews "left" 2
+		                -af $camViews "top" 2
+		                -attachControl $camViews bottom 2 $doneButt
+		                -af $camViews "right" 300
+						
+						-af $doneButt "left" 2
+		                -af $doneButt "top" 610
+		                -af $doneButt "bottom" 2
+		                -af $doneButt "right" 300
+		
+		
+		        $nodeForm;
+				
+	showEditor sky_1;
+	window -e -vis 0 AEWindow;
+		
+	showWindow nodeBuilderUI;
+		}
+}
+
+global proc skyTexture ()
+{
+	string $nodeImage = `fileDialog -dm "*.tif;*.jpg;*.tga"`;
+	AEassignTextureCB  sky_1.fileTextureName $nodeImage "image";
+}
+
+global proc groundTexture ()
+{
+	string $nodeImage = `fileDialog -dm "*.tif;*.jpg;*.tga"`;
+	AEassignTextureCB  ground_1.fileTextureName $nodeImage "image";
+}
+
+global proc northTexture ()
+{
+	string $nodeImage = `fileDialog -dm "*.tif;*.jpg;*.tga"`;
+	AEassignTextureCB  north_1.fileTextureName $nodeImage "image";
+}
+
+global proc eastTexture ()
+{
+	string $nodeImage = `fileDialog -dm "*.tif;*.jpg;*.tga"`;
+	AEassignTextureCB  east_1.fileTextureName $nodeImage "image";
+}
+
+global proc southTexture ()
+{
+	string $nodeImage = `fileDialog -dm "*.tif;*.jpg;*.tga"`;
+	AEassignTextureCB  south_1.fileTextureName $nodeImage "image";
+}
+
+global proc westTexture ()
+{
+	string $nodeImage = `fileDialog -dm "*.tif;*.jpg;*.tga"`;
+	AEassignTextureCB  west_1.fileTextureName $nodeImage "image";
+}

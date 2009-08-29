@@ -1,0 +1,139 @@
+//Keegan
+//Joint To Vertex
+//jointToVertex
+//none
+//jointToVertex
+//animation
+/*
+jointToVertex
+
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+
+Version: 2.5
+
+Last Modified: (11-03-2004)
+
+Function: Creates a joint for every vertex of a selected object.  
+Designed for creating allot of joints fast to be used in joint driven facial animation.
+
+Install: 
+	1. Move this script to your scripts directory.
+	2. Type "jointToVertex" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+Note: Only works on polygons.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+//main window
+global proc jointToVertex()
+{
+if ( `window -exists jointToVertexMinip`)
+	deleteUI jointToVertexMinip;
+
+if ( `window -exists jointToVertexUI`)
+	deleteUI jointToVertexUI;
+
+string $sel[] = `ls -sl -fl`;
+if (`size $sel` == 0)
+	error "No object selected";
+
+string $obj = `match "^[^\.]*" $sel[0]`;
+int $vertexNum[] = `polyEvaluate -v $obj`;
+
+window  jointToVertexUI;
+	columnLayout -adj 1;
+		button -w 256 -l ( "Create " + $vertexNum[0] + " joints on the selected mesh" ) -c ("allV " + $obj);
+		button -w 256 -l "Create joints on selected vertecies" -c ("selV " + $obj);
+		button -w 256 -l "New Object" -c "jointToVertex";
+		button -w 256 -l "Close" -c "deleteUI jointToVertexUI";
+
+window -edit -wh 271 122 -t ( "Joint To Vertex : " + $obj )jointToVertexUI;
+showWindow jointToVertexUI;
+}
+
+//create joints
+global proc allV(string $obj)
+{
+string $jointGroup = `group -em -n ( $obj + "_Joints" )`;
+int $vertexNum[] = `polyEvaluate -v $obj`;
+	
+for ($i=0; $i<$vertexNum[0]; $i++)
+	{
+		string $bone = `joint`;
+		float $pos[] = `pointPosition ($obj + ".vtx[" + $i + "]")`;
+		move $pos[0] $pos[1] $pos[2] $bone;
+		
+		parent -w;
+		parent $bone $jointGroup;
+	}
+jointToVertexMinip $obj $jointGroup;
+}
+
+global proc selV(string $obj)
+{
+string $sel[] = `ls -sl -fl`;
+string $jointGroup = `group -em -n ( $obj + "_Joints" )`;
+
+for ($each in $sel)
+	{
+		string $bone = `joint`;
+		float $pos[] = `pointPosition $each`;
+		move $pos[0] $pos[1] $pos[2] $bone;
+		
+		parent -w;
+		parent $bone $jointGroup;
+	}
+jointToVertexMinip $obj $jointGroup;
+}
+
+//minipulate window
+global proc jointToVertexMinip (string $obj, string $group)
+{
+if ( `window -exists jointToVertexUI`)
+	deleteUI jointToVertexUI;
+
+if ( `window -exists jointToVertexMinip`)
+	deleteUI jointToVertexMinip;
+	
+window jointToVertexMinip;
+	columnLayout -adj 1;
+		floatSliderGrp
+			-l "Adjust joint size"
+			-en 1
+			-dc "jointDisplayScale #1"
+			-pre 3
+			-field 1
+			-cw3 102 50 50
+			-adj 3
+			-min 0.001
+			-max 2.000
+			-v 0.10
+			;
+	button -l "Bind Skin" -c ("bindObj " + $group + " " + $obj);
+	button -l "New Object" -c "jointToVertex";
+	button -l "Close" -c "deleteUI jointToVertexMinip";
+	
+window -edit -wh 279 139  -t ( "Joint To Vertex : " + $obj ) jointToVertexMinip;
+showWindow jointToVertexMinip;
+
+select -cl;
+}
+
+//bind options
+global proc bindObj (string $group, string $obj)
+{
+string $joints[] = `listRelatives -c $group`;
+select -r $joints $obj;
+SmoothBindSkin -tsb -bcp -cj;
+select -cl;
+}
+
+

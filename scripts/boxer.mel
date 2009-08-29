@@ -1,0 +1,377 @@
+/*
+Author: David Keegan (www.keegan3d.com)
+Copyright (C) 2005 David Keegan
+
+Version: 2.1
+
+Function: Boxer displays the bounding box information for a selected 
+	object. This data is used to create a proxy object that can be 
+	used for a RIB box.
+
+Install 
+	1. Move boxer.mel to you're Maya scripts directory.
+	2. Move KeeganMan to you're icons directory.
+	2. Type "boxer" into Maya's command line.
+	
+History:
+v.2.1: Added round function to make the "Override" values more accurate.
+
+Use and/or modify at your own risk.
+*/
+
+global proc boxer()
+{
+global int $RmanUpdate;
+
+if(`window -q -ex RmanBBUI`)
+	deleteUI RmanBBUI;
+
+int $fieldW = 80;
+int $fieldH = 22;
+int $buttW = $fieldW + 1;
+
+window -t "Boxer - RIB box" RmanBBUI;
+string $baseField = `formLayout`;
+string $topCol = `columnLayout -adj 1`;
+
+//real bounding box region
+string $realBBform = `formLayout`;
+	string $minMaxColControl = `columnLayout -adj 1`;
+			text " ";
+			text -h 22 -fn "boldLabelFont" -l "Min";
+			text -h 22 -fn "boldLabelFont" -l "Max";
+	
+	setParent $realBBform;
+	string $fieldForm = `formLayout`;
+		string $colControl1 = `columnLayout -adj 1`;
+			text -fn "boldLabelFont" -l "X";
+			floatField Xmin;
+			floatField Xmax;
+		setParent $fieldForm;
+			
+		string $colControl2 = `columnLayout -adj 1`;
+			text -fn "boldLabelFont" -l "Y";
+			floatField Ymin;
+			floatField Ymax;
+		setParent $fieldForm;
+			
+		string $colControl3 = `columnLayout -adj 1`;
+			text -fn "boldLabelFont" -l "Z";
+			floatField Zmin;	
+			floatField Zmax;
+		setParent $fieldForm;
+			
+		formLayout
+			-edit
+	
+			-af $colControl1 "left" 0
+			-af $colControl1 "bottom" 0
+			-af $colControl1 "top" 0
+			-ap $colControl1 "right" 0 33
+		
+			-ac $colControl2 "left" 0 $colControl1
+			-af $colControl2 "bottom" 0
+			-af $colControl2 "top" 0
+			-ac $colControl2 "right" 0 $colControl3
+			
+			-ap $colControl3 "left" 0 66
+			-af $colControl3 "bottom" 0
+			-af $colControl3 "top" 0
+			-af $colControl3 "right" 0
+			
+			$fieldForm;
+			
+	formLayout
+		-edit
+	
+		-af $minMaxColControl "left" 0
+		-af $minMaxColControl "bottom" 0
+		-af $minMaxColControl "top" 0
+		-ac $minMaxColControl "right" 0 $fieldForm
+	
+		-af $fieldForm "left" 40
+		-af $fieldForm "bottom" 0
+		-af $fieldForm "top" 0
+		-af $fieldForm "right" 0
+		
+		$realBBform;
+
+//user defined bounding box region	
+setParent $topCol;
+string $udFrameColaps = `columnLayout -adj 1`;
+frameLayout -l "Override bounding box" -cll 1 -cl 1 -ec "userDefDDvalues 0" -cc "userDefDDvalues 1" "UDframelayout";
+string $udBBform = `formLayout`;
+	string $minMaxColControlUD = `columnLayout -adj 1`;
+			text " ";
+			text -h 22 -fn "boldLabelFont" -l "Min";
+			text -h 22 -fn "boldLabelFont" -l "Max";
+	
+	setParent $udBBform;
+	string $fieldFormUD = `formLayout`;
+		string $colControl1UD = `columnLayout -adj 1`;
+			text -fn "boldLabelFont" -l "X";
+			floatField XminUD;
+			floatField XmaxUD;
+		setParent $fieldFormUD;
+			
+		string $colControl2UD = `columnLayout -adj 1`;
+			text -fn "boldLabelFont" -l "Y";
+			floatField YminUD;
+			floatField YmaxUD;
+		setParent $fieldFormUD;
+			
+		string $colControl3UD = `columnLayout -adj 1`;
+			text -fn "boldLabelFont" -l "Z";
+			floatField ZminUD;
+			floatField ZmaxUD;
+		setParent $fieldFormUD;
+			
+		formLayout
+			-edit
+	
+			-af $colControl1UD "left" 0
+			-af $colControl1UD "bottom" 0
+			-af $colControl1UD "top" 0
+			-ap $colControl1UD "right" 0 33
+		
+			-ac $colControl2UD "left" 0 $colControl1UD
+			-af $colControl2UD "bottom" 0
+			-af $colControl2UD "top" 0
+			-ac $colControl2UD "right" 0 $colControl3UD
+			
+			-ap $colControl3UD "left" 0 66
+			-af $colControl3UD "bottom" 0
+			-af $colControl3UD "top" 0
+			-af $colControl3UD "right" 0
+			
+			$fieldFormUD;
+
+	formLayout
+		-edit
+	
+		-af $minMaxColControlUD "left" 0
+		-af $minMaxColControlUD "bottom" 0
+		-af $minMaxColControlUD "top" 0
+		-ac $minMaxColControlUD "right" 0 $fieldFormUD
+	
+		-af $fieldFormUD "left" 40
+		-af $fieldFormUD "bottom" 0
+		-af $fieldFormUD "top" 0
+		-af $fieldFormUD "right" 0
+		
+		$udBBform; 
+
+setParent $udFrameColaps;	
+frameLayout -cll 1 -l "Bounding Box Options" -cl 1 -ec "userDefDDvalues 2" -cc "userDefDDvalues 3" "Optionframelayout";
+		columnLayout -adj 1;
+			checkBox -al left -l "Move object to origin" moveOriginCheck;
+			checkBox -al left -l "Apply transforms" applyTransCheck;
+		setParent..;
+	setParent..;
+	
+setParent $baseField;
+string $buttCol = `columnLayout -adj 1`;
+	separator;
+	button -l "Create Bounding Box" -c "genBB";
+	button -l "Close" -c "deleteUI RmanBBUI";
+		
+	formLayout
+		-edit
+	
+		-af $topCol "left" 0
+		-af $topCol "bottom" 46
+		-af $topCol "top" 0
+		-af $topCol "right" 0
+	
+		-af $buttCol "left" 0
+		-af $buttCol "bottom" 0
+		-ac $buttCol "top" 0 $topCol
+		-af $buttCol "right" 0
+		
+		$baseField;
+	
+userDefDDvalues 1;
+showWindow RmanBBUI;
+
+$RmanUpdate = `scriptJob -e "SelectionChanged" "updateBB"`;
+scriptJob -ro 1 -uid "RmanBBUI" ("scriptJob -kill " + $RmanUpdate);
+
+string $sel[] = `ls -sl`;
+if(`size($sel)`>0)
+	updateBB;
+}
+
+global proc userDefDDvalues(int $state)
+{
+int $h;
+string $fields[]=
+	{	
+		"Xmin",
+		"Xmax",
+		"Ymin",
+		"Ymax",
+		"Zmin",
+		"Zmax"	
+	};
+
+int $fieldOpen1 = `frameLayout -q -cl UDframelayout`;
+int $fieldOpen2 = `frameLayout -q -cl Optionframelayout`;
+		
+if(`about -ntOS`)
+	{
+		if($state)
+			{
+				if(!$fieldOpen2)
+					$h = 208;
+				
+				if($fieldOpen2)
+					$h = 174;					
+			}
+			
+		if(!$state)
+			{
+				if(!$fieldOpen2)
+					$h = 268;
+				
+				if($fieldOpen2)
+					$h = 236;				
+			}
+		
+		if($state == 2)
+			{
+				if(!$fieldOpen1)
+					$h = 268;
+				
+				if($fieldOpen1)
+					$h = 208;					
+			}
+			
+		if($state == 3)
+			{
+				if(!$fieldOpen1)
+					$h = 237;
+				
+				if($fieldOpen1)
+					$h = 174;					
+			}
+	}
+		
+if(`about -macOS`)
+	{
+		if($state)
+			$h = 179;
+			
+		if(!$state)
+			$h = 252;
+	}
+		
+window -edit -h $h RmanBBUI;
+
+for($each in $fields)
+	floatField -edit -en $state $each;
+}
+
+global proc updateBB()
+{
+string $sel[] = `ls -sl -fl`;
+float $bb[];
+int $rbb[];
+
+if(`size($sel)`>1)
+	warning "The bounding box is only printed for the first selected object or component";
+
+if(`size($sel)`>=1)
+	{
+		$bb = `xform -q -bb $sel[0]`;
+		for($ubb=0; $ubb<6; $ubb++)
+			$rbb[$ubb] = `round $bb[$ubb]`;
+	}
+
+string $fields[]=
+	{	
+		"Xmin",
+		"Ymin",
+		"Zmin",
+		"Xmax",
+		"Ymax",
+		"Zmax"
+	};
+
+for($i=0; $i<6; $i++)
+	{
+		floatField -edit -v $bb[$i] $fields[$i];
+		floatField -edit -v $rbb[$i] ($fields[$i] + "UD");
+	}
+}
+
+global proc genBB()
+{
+string $sel[] = `ls -sl`;
+
+if(`size($sel)` < 1)
+	error "Select one object";
+
+if(`size($sel)` > 1)
+	warning "A proxy object will only be created for the first selected object";
+
+string $fields[]=
+	{	
+		"Xmin",
+		"Ymin",
+		"Zmin",
+		"Xmax",
+		"Ymax",
+		"Zmax"
+	};
+
+float $bb[];
+string $fieldAddOn;
+
+int $frameState = `frameLayout -q -cl UDframelayout`;
+if(!$frameState)
+	$fieldAddOn = "UD";
+
+for($i=0; $i<6; $i++)
+	$bb[size($bb)] = `floatField -q -v ($fields[$i] + $fieldAddOn)`;
+		
+string $proxyCube[] = `polyCube -ch 0 -n ($sel[0] + "_proxy")`;
+
+float $midX = ($bb[0] + $bb[3])/2;
+float $midY = ($bb[1] + $bb[4])/2;
+float $midZ = ($bb[2] + $bb[5])/2;
+
+float $x = $bb[0] - $bb[3];
+float $y = $bb[1] - $bb[4];
+float $z = $bb[2] - $bb[5];
+
+setAttr ($proxyCube[0] + ".t") $midX $midY $midZ;
+setAttr ($proxyCube[0] + ".s") $x $y $z;
+
+if(`checkBox -q -v moveOriginCheck`)
+	{
+		move -r ($midX*-1) ($midY*-1) ($midZ*-1) $sel[0];
+		move -r ($midX*-1) ($midY*-1) ($midZ*-1) $proxyCube[0];
+	}
+
+if(`checkBox -q -v applyTransCheck`)
+	{
+		makeIdentity -apply 1 -t 1 -r 1 -s 1 -n 0 $proxyCube[0];
+		makeIdentity -apply 1 -t 1 -r 1 -s 1 -n 0 $sel[0];
+	}
+	
+print ("Box dimensions: " + $x + "  " + $y + "  " + $z);
+}
+
+global proc int round(float $n)
+{
+int $return;
+int $floor = `floor $n`;
+float $remainder = $n-$floor;
+
+$return = $floor;
+
+if($remainder>=0.5 && $n>0)
+	$return = $floor + 1;
+
+return $return;
+}

@@ -1,0 +1,42 @@
+//Keegan
+//Attribute Delete
+//attrDelete
+//none
+//attrDel
+//menu
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+
+Version: 2.0
+
+Function: For selected channels in the channel box, 
+makes attributes un-keyable and locked. 
+
+Install 
+	1. Move attrDelete.mel to you Maya scripts directory.
+	2. Type "attrDelete" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+Works great for creating null objects.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc attrDelete ()
+{
+for($each in `ls -sl`)
+	{
+		for ($attr in `channelBox -q -sma mainChannelBox`)
+			{
+				setAttr -lock 1 ($each + "." + $attr);
+				setAttr -e -keyable 0 ($each + "." + $attr);
+			}
+	}
+print "Attributes Removed";
+}

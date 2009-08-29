@@ -1,0 +1,40 @@
+//Keegan
+//Reverse Selection
+//reverseSelection
+//none
+//reverseSelection
+//utility
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 1.0
+
+Function: Reverses the order in which objects are selected in.
+
+Last Updated:(12-30-04)
+
+Install
+	1. Move reverseSelection.mel to you Maya scripts directory.
+	2. Type "reverseSelection" into Maya's command line.
+
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+All code and icons created by David Keegan. 
+Use and/or modify at your own risk.  
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+global proc reverseSelection()
+{
+string $newSel[];
+string $sel[] = `ls -sl`;
+int $numSel = `size($sel)`;
+
+for($i=0; $i<$numSel; $i++)
+	$newSel[$i] = $sel[($numSel-1)-$i];
+
+select -r $newSel;
+}

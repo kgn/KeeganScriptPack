@@ -1,0 +1,151 @@
+//Keegan
+//Random Texture Application
+//randTexApp
+//none
+//randTexApp
+//textureing
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 1.0
+
+Function: Randomly assigns designated shaders to selected
+	objects.
+
+Last Updated:(02-08-05)
+
+Install 
+	Move randTexApp.mel to you Maya scripts directory.
+	Move keeganShelf to you Maya icons directory.
+	Type "randTexApp" into Maya's command line.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.	
+*/
+
+global proc randTexApp()
+{
+if (!`optionVar -exists "omitDefult"`)
+	optionVar -intValue "omitDefult" 0;
+
+int $omit = `optionVar -q "omitDefult"`;
+
+string $allShades[]= `ls -mat`;
+string $shades[];
+
+if($omit)
+	{
+		string $def[] = 
+			{
+				"lambert1",
+				"particleCloud1"
+			};
+				
+		$shades = stringArrayRemove($def, $allShades);
+	}
+if(!$omit)
+	$shades = $allShades;
+
+if(`window -q -ex chooseShaderType`)
+	deleteUI chooseShaderType;
+
+window -mb 1 -t "Rand Shade" chooseShaderType;
+menu -l "Options";
+	menuItem 
+		-cb $omit
+		-l "Omit Default Shaders"
+		-c "omitMenuCheck"
+		omitMenuCheck;
+	
+string $mainForm = `formLayout`;
+	string $topCol = `frameLayout "Select Shaders"`;
+		columnLayout -adj 1 shaderColList;
+			for($i=0; $i<`size($shades)`; $i++)
+				checkBox -al left -v 1 -l $shades[$i] $shades[$i];
+	
+	setParent $mainForm;
+	string $bottomCol = `columnLayout -adj 1`;
+		button -l "Done" -c "genRandShadersAssingnment";
+		button -l "Close" -c "deleteUI chooseShaderType";
+		
+formLayout 
+	-edit
+	
+	-af $topCol top 0
+	-af $topCol bottom 44
+	-af $topCol left 0
+	-af $topCol right 0
+	
+	-ac $bottomCol top 0 $topCol
+	-af $bottomCol bottom 0
+	-af $bottomCol left 0
+	-af $bottomCol right 0
+	
+	$mainForm;
+
+showWindow chooseShaderType;
+window -edit -wh 164 249 chooseShaderType;
+}
+
+global proc omitMenuCheck()
+{
+int $omit = `menuItem -q -cb omitMenuCheck`;
+
+if(!$omit)
+	{
+		if(!`checkBox -q -ex lambert1`)
+			{
+				setParent shaderColList;
+				checkBox -al left -v 1 -l "lambert1" lambert1;
+			}
+		
+		if(!`checkBox -q -ex particleCloud1`)
+			{
+				setParent shaderColList;
+				checkBox -al left -v 1 -l "particleCloud1" particleCloud1;
+			}
+	}
+
+if($omit)
+	{
+		if(`checkBox -q -ex lambert1`)
+			deleteUI lambert1;
+		
+		if(`checkBox -q -ex particleCloud1`)
+			deleteUI particleCloud1;
+	}
+	
+optionVar -intValue "omitDefult" $omit;
+}
+
+global proc genRandShadersAssingnment()
+{
+string $sel[] = `ls -sl -fl`;
+if(!`size($sel)`)
+	error "No objects selected";
+
+string $useShaders[];
+
+for($each in `columnLayout -q -ca shaderColList`)
+	{
+		int $v = `checkBox -q -v $each`;
+		if($v)
+			$useShaders[size($useShaders)] = $each;	
+	}
+
+int $numShaders = `size($useShaders)`;
+
+for($each in $sel)
+	{
+		int $rand = `rand 0 $numShaders`;
+		select -r $each;
+		hyperShade -a $useShaders[$rand];
+	}
+select -r $sel;
+}
+
+	

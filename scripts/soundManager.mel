@@ -1,0 +1,111 @@
+//Keegan
+//Sound Manager
+//soundManager
+//none
+//soundManager
+//utility
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 1.5
+Last Modified: (10-03-2004)
+
+Installation:
+	1.Copy this script to your script directory.
+	2.Type "soundManager" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+Synopsis:
+	This UI will display all sounds in the scene, it also allows you
+	to add sound, delete sound, and display sound based on the sound 
+	selected from the list.  Double clicking a sound in the list will 
+	display the sounds attribute editor, and pressing the delete key 
+	will delete the sound from the scene.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc soundManager()
+{	
+if ( `window -exists soundManagerUI`)
+	deleteUI soundManagerUI;	
+
+int $buttH = 30;
+string $sounds[] =`ls -type "audio"`;
+				
+window -t "Sound Manager" soundManagerUI;
+
+string $soundForm = `formLayout -numberOfDivisions 100`;
+
+string $attrControl = `paneLayout -cn single`;
+textScrollList -dkc "deleteSound" -ams false -h 150 soundList;
+	for ($each in $sounds)
+		textScrollList -e -numberOfRows 8 -dcc ("showEditor " + $each ) -append $each soundList;
+setParent..;
+
+string $buttonControl = `columnLayout -adjustableColumn true`;
+	button -h $buttH -l "Add Sound" -c "addSound";
+	button -h $buttH -l "Display Sound" -c "displayMaskSound";
+	button -h $buttH -l "Delete Sound" -c "deleteSound";
+	button -h $buttH -l "Close" -c "deleteUI soundManagerUI";
+
+formLayout
+	-edit
+	
+	-af $attrControl "left" 0
+	-af $attrControl "top" 0
+	-af $attrControl "bottom" 122
+	-af $attrControl "right" 0
+
+	-af $buttonControl "left" 0
+	-af $buttonControl "bottom" 0
+	-ac $buttonControl top 2 $attrControl
+	-af $buttonControl "right" 0
+	
+	$soundForm;
+		
+window -edit -wh 158 384 soundManagerUI;	
+showWindow soundManagerUI;	
+}
+
+global proc addSound () 
+{	
+string $dirPath = ( `workspace -q -rd` + "sound/" );
+string $soundFile = `fileDialog -dm ( $dirPath + "*.wav;*.aif;*.aiff" )`;
+sound -f $soundFile;
+soundManager;	
+}
+
+global proc displayMaskSound()
+{
+source updateSoundMenu.mel;
+
+string $sound[] = `textScrollList -q -si soundList`;
+setSoundDisplay $sound[0] 1;
+}
+
+global proc deleteSound ()
+{
+string $sound[] = `textScrollList -q -si soundList`;
+string $result = `confirmDialog
+-title "Sound Delete"
+-message ("Are you sure you want to delete \"" + $sound[0] + "\" your sound file?")
+-button "Yes"
+-button "No"
+-defaultButton "Yes"
+-cancelButton "No"
+-dismissString "No"`;
+
+if ($result == "Yes")
+	{
+		delete $sound;
+		soundManager;
+	}
+}

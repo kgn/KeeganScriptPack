@@ -1,0 +1,72 @@
+//Keegan
+//Import All
+//importAll
+//none
+//importAll
+//utility
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+
+Version: 1.0
+
+Last Modified:  (11-03-2004)
+
+Installation:
+	1.Copy this script to your script directory.
+	2.type importAll into Maya's command line.
+
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+Synopsis:
+	Imports every file in a selected folder. Currently 
+	only works with obj's.
+
+Note: 
+	If there is an object in your scene named
+	"polySurface1" you need to rename it before running
+	importAll
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc importAll()
+{
+fileBrowser "importFolder" "Import Each" "" 4;
+}
+
+global proc int importFolder (string $path, string $type)
+{
+string $folder[] = `getFileList -folder ($path + "/")`;
+int $sizeFolder = `size($folder)`;
+
+progressWindow
+	-t "Import All"
+	-progress 0
+	-status "Number of files imported 0" 
+	-isInterruptable true;
+
+for ($i=0; $i<$sizeFolder; $i++)
+	{
+		if (`progressWindow -q -isCancelled`)
+			break;
+
+		string $fileName[];
+		tokenize $folder[$i] "." $fileName;
+		int $numDots = `size($fileName)`-1;
+		
+		progressWindow -edit -progress $i -status ("Number of files imported " + $i + " : " + $fileName[0]);
+		
+		if($fileName[$numDots] == "obj");
+			{
+				file -i -type "OBJ" ($path + "/" + $folder[$i]);
+				rename "polySurface1" $fileName[0];
+			}
+	}
+progressWindow -endProgress;	
+return $sizeFolder;
+}

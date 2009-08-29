@@ -1,0 +1,125 @@
+//Keegan
+//Shelf Button Maker
+//shelfButtonMaker
+//none
+//shelfButtonMaker
+//utility
+/*
+Shelf Button Maker
+
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 1.5
+Last Modified: (11-03-2004)
+
+Function: Allows the user to quickly and easily create custom shelf buttons.  
+
+Usage:
+	1. Copy the script shelfButtonMaker.mel to your local scripts directory
+	2. Type "shelfButtonMaker" into Maya's command line.
+	3. Enter custom commands onto the fields.
+	4. The shelf button in the interface can be tested.
+	5. Middle mouse drag the shelf button to any shelf tab.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+
+global proc shelfButtonMaker()
+{
+int $lW = 80;
+if(`window -q -ex shelfMakerUI`)
+	deleteUI shelfMakerUI;
+
+window -wh 273 312 -t "Shelf Button Maker" shelfMakerUI;
+string $winForm = `formLayout -nd 100`;
+
+string $top = `columnLayout -adj 1`;
+rowLayout -cl2 center center -nc 2 -cw2 1 72 -adj 1;
+	columnLayout -adj 1;
+		rowLayout -cl2 left center -nc 2 -cw2 $lW 1 -adj 2;
+			text -al left -l " Label";
+			textField -h 22 -cc "updateShelf shelfLabel -l" shelfLabel;
+		setParent..;
+	
+		rowLayout -cl2 left center -nc 2 -cw2 $lW 1 -adj 2;
+			text -al left -l " Annotation";
+			textField -h 22 -cc "updateShelf shelfAnn -ann" shelfAnn;
+		setParent..;
+		
+		rowLayout -cl2 left center -nc 2 -cw2 $lW 1 -adj 2;
+			text -al left -l " Over Label";
+			textField -h 22 -cc "updateShelf shelfOverLabel -iol" shelfOverLabel;
+		setParent..;
+	
+		rowLayout -cl2 left center -nc 2 -cw2 $lW 1 -adj 2;
+			text -al left -l " Double Click";
+			textField -h 22 -cc "updateShelf shelfDoubleClick -dcc" shelfDoubleClick;
+		setParent..;
+	setParent..;
+	
+	columnLayout -adj 1;
+		shelfLayout -w 71 -h 53;
+			shelfButton -i1 "commandButton.xpm" shelfButtonShow;
+		setParent..;
+		button -h 44 -l "Icon" -c "updateShelfIcon";
+		setParent..;
+	setParent..;
+	
+setParent $winForm;
+
+string $middle = `frameLayout -l "Command"`;
+	textField -cc "updateShelf shelfCommand -c" shelfCommand;
+	
+setParent $winForm;
+
+string $bottom = `columnLayout -adj 1`;
+	button -h 30 -l "Close" -c "deleteUI shelfMakerUI";
+setParent $winForm;
+
+formLayout
+	-edit
+	
+	-af $top "left" 0
+	-ac $top bottom 0 $middle
+	-af $top "top" 0
+	-af $top right 0
+	
+	-af $middle "top" 98
+	-af $middle "left" 0
+	-af $middle "right" 0
+	-af $middle "bottom" 30
+	
+	-af $bottom "left" 0
+	-ac $bottom top 0 $middle
+	-af $bottom "bottom" 0
+	-af $bottom right 0
+	
+	$winForm;
+
+showWindow shelfMakerUI;
+}
+
+
+global proc updateShelf(string $field, string $command)
+{
+string $value = `textField -q -tx $field`;
+shelfButton -edit $command $value shelfButtonShow;
+print $value;
+}
+
+global proc updateShelfIcon()
+{
+string $file = `fileDialog -dm "*.xpm; *.xpm; *dib"`;
+if (`size($file)` == 0)
+	$file = "commandButton.xpm";
+shelfButton -edit -i1 $file shelfButtonShow;
+}

@@ -1,0 +1,7135 @@
+//Keegan
+//Masquerade
+//Masquerade
+//none
+//shelfMask
+//animation
+/*
+Masquerade Beta Version 1.0
+Copyright (C) 2004 David Keegan
+	
+Author: David Keegan (eyelink@sbcglobal.net)
+www.keegan3d.com
+
+Creation Date:(12/22/03)
+Last Updated:(06-01-04)
+
+Description: 
+	Masquerade is a powerful facial animation tool
+		-Easy to use, any character and any rig
+		-Powerful interface, giving the user full control over their facial animation
+
+Installation:
+	1. Copy the script Masquerade.mel to your local scripts directory
+		C:\Documents and Settings\"USER"\My Documents\maya\6.0\scripts\
+		
+	2. Copy the Masquerade_icons folder to your icons directory
+		C:\Documents and Settings\"USER"\My Documents\maya\6.0\prefs\icons\	
+	
+	If you want Masquerade to launch automatically, copy userSetup.mel to your scripts directory. 
+	If you already have a userSetup.mel file, add, "Masquerade;" to it.
+	
+	3. Launch Maya
+	
+	4. If "Masquerade;" is not in a userSetup.mel file, type "Masquerade"
+	into Maya's command line, and press "Enter".
+	
+	5. Masquerade creates a shelf and menu set.  If you do not like using shelves type "maskShelf off;"
+	into Maya's command line, and press "Enter", If you want to turn the shelf creation on type
+	"maskShelf on;".
+	
+	6. For help, in the Masquerade menu is "Help", click on it or go to 
+	"http://www.keegan3d.com/Masquerade/Help.htm"
+
+USE AND/OR MODIFY THIS AT YOUR OWN RISK
+
+*/
+
+
+global proc Masquerade()
+{
+//Maya UI
+global string $gMainWindow;
+global string $gAnimationMenus[];
+global string $mMenu;
+global string $gShelfTopLevel;
+global string $gMainPane;
+
+//icons
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+//optionVar
+if (!`optionVar -exists "maskFrameHUB"`)
+	optionVar -intValue "maskFrameHUB" 0;
+
+int $frameHUBvalue = `optionVar -q "maskFrameHUB"`;
+
+if (!`optionVar -exists "autoLaunchMask"`)
+	optionVar -intValue "autoLaunchMask" 0;
+
+int $autoLaunchMask = `optionVar -q "autoLaunchMask"`;
+
+if (!`optionVar -exists "maskInfoHUB"`)
+	optionVar -intValue "maskInfoHUB" 0;
+
+int $maskInfo = `optionVar -q "maskInfoHUB"`;
+
+if (!`optionVar -exists "maskFrameHUB"`)
+	optionVar -intValue "maskFrameHUB" 0;
+
+int $frameHUBvalue = `optionVar -q "maskFrameHUB"`;
+
+if (!`optionVar -exists "createMaskShelf"`)
+	optionVar -intValue "createMaskShelf" 1;
+
+int $createShelf = `optionVar -q "createMaskShelf"`;
+
+//scriptJobs
+global int $autoMask;
+scriptJob -e "SceneOpened" "updateMaskMenu;maskPanelCheck;maskTimePanelDelJob;clearGlobalChar";
+
+//add shelf
+if ($createShelf == 1)
+	{
+		setShelfVisible 1;
+		setParent $gShelfTopLevel;
+		
+		if (`shelfLayout -q -exists Masquerade` == 0)
+			{ 
+				addNewShelfTab "Masquerade";
+				
+				shelfButton 
+					-l "Help" 
+					-ann "Masquerade Help" 
+					-i1 ($imagepath + "maskHelp.bmp")  
+					-c "launchMaskHelp;" 
+					;
+				shelfButton 
+					-l "Mask Creator" 
+					-ann "Create Control Mask" 
+					-i1 ($imagepath + "maskCreator.bmp")  
+					-c "maskCreator;"
+					;		
+				shelfButton 
+					-l "Masquerade" 
+					-ann "Launch Masquerade" 
+					-i1 ($imagepath + "shelfMask.bmp")
+					-dcc "switchCharWin 0"  
+					-c "charHunt 0;" 
+					;
+				shelfButton 
+					-l "loadAttr" 
+					-ann "Add Attributes To Selected Control Mask" 
+					-i1 ($imagepath + "addAttr.bmp")  
+					-c " addMaskAttr;" 
+					;
+				shelfButton 
+					-l "Sound Manager" 
+					-ann "Sound Manager" 
+					-i1 ($imagepath + "soundManShelf.bmp")  
+					-c "soundManager;" 
+					;
+				shelfButton 
+					-l "Frame/Time Converter"
+					-ann "Convert frames to minuets:seconds.frames, or minuets:seconds.frames to frames"
+					-i1 ($imagepath + "timeCon.bmp") 
+					-c "maskTimeConverter;"
+					;
+				shelfButton 
+					-l "maskDelete" 
+					-ann "Delete Selected Control Mask" 
+					-i1 ($imagepath + "maskDelete.bmp")  
+					-c "maskDeleteWin;" 
+					;
+				shelfButton 
+					-l "Masquerade/Persp" 
+					-ann "Masquerade/Persp"
+					-i1 ($imagepath + "maskPersp.bmp")
+					-c "if (`panelConfiguration -q -ex Masquerade` != 1)\n\t{\n\t\tmaskPanel;\n\t\tsetNamedPanelLayout \"Masquerade\";\n\t}\n\nif (`panelConfiguration -q -ex Masquerade`)\n\tsetNamedPanelLayout\"Masquerade\";"
+					;
+				shelfButton 
+					-l "Masquerade/Persp/Graph Editor" 
+					-ann "Masquerade/Persp/Graph Editor"
+					-i1 ($imagepath + "maskPerspGraph.bmp")
+					-c "if (`panelConfiguration -q -ex Masquerade` != 1)\n\t{\n\t\tmaskPanel;\n\t\tsetNamedPanelLayout \"Masquerade/Persp/Graph Editor\";\n\t}\n\nif (`panelConfiguration -q -ex Masquerade`)\n\tsetNamedPanelLayout \"Masquerade/Persp/Graph Editor\";"
+					;
+				
+				setParent $gShelfTopLevel;
+				tabLayout -e -selectTab "Masquerade" $gShelfTopLevel;
+				saveAllShelves $gShelfTopLevel; 	
+			}
+	}
+	
+//Menu in Maya	
+int $menuEx = 0;
+int $menuSize = `size $gAnimationMenus`;
+
+setParent $gMainWindow;
+
+for ($eachMenu in $gAnimationMenus)
+	{
+		if (`match "maskMenu" $eachMenu` == "maskMenu")
+			{
+				$menuEx = 1;
+				break;
+			}
+	}
+
+if ($menuEx == 0)
+	$gAnimationMenus[$menuSize] = `menu -l "Masquerade" -aob 1 -to 1 maskMenu`;
+
+if ($menuEx == 1)
+	menu -e -dai maskMenu;
+
+setParent -m maskMenu;
+	
+	menuItem
+	   	-l "About Masquerade"
+		-ann "Display information about Masquerade"
+		-i ($imagepath + "maskHelp.bmp")
+	   	-c "aboutMask;"
+		;
+	menuItem
+		-d 1
+		;
+	menuItem
+	   	-l "Create Control Mask"
+		-ann "Creates a control mask, control masks are the baises of Masquerade"
+		-i ($imagepath + "maskCreator.bmp")
+		-c "maskCreator;"
+		;
+	menuItem 
+		-d 1
+		;
+	menuItem
+		-l "Launch Masquerade"
+		-ann "launch the Masquerade animation window"
+		-i ($imagepath + "shelfMask.bmp")
+		-c "charHunt 0;"
+		;
+	menuItem 
+		-ob 1
+		-c "switchCharWin 0"
+		-ann "Launch character in Masquerade from list"
+		-i ($imagepath + "launchFromList.bmp")
+		;
+	menuItem
+		-sm 1
+		-l "Launch Masquerade With"
+		selectedMaskLauncher
+		;
+	menuItem 
+		-d 1
+		;
+	menuItem
+		-l "Update List"
+		-ann "Update the list to display all control masks in the scene"
+		-i ($imagepath + "updateList.bmp")
+		-c "updateMaskMenu;"
+		;
+	setParent -m ..;
+	
+	menuItem
+		-l "Character to shelf"
+		-ann "Create a shelf button to launch Masquerade with selected control mask"
+		-i ($imagepath + "charToShelf.bmp")
+		-c "charHunt 1"
+		;
+	menuItem 
+		-ob 1
+		-c "switchCharWin 1"
+		-ann "Chose character from list to create a shelf button"
+		-i ($imagepath + "charToShelfFromList.bmp")
+		;
+	menuItem 
+		-d 1
+		;
+	menuItem
+		-l "Delete Mask"
+		-ann "Deletes selected mask and its components(including animation)"
+		-i ($imagepath + "maskDelete.bmp")
+	   	-c "maskDeleteWin;"
+		;
+	menuItem 
+		-ob 1
+		-c "deleteCharWin"
+		-ann "Deletes mask and its components(including animation) from list"
+		-i ($imagepath + "maskDeleteFromList.bmp")
+		;
+	menuItem 
+		-d 1;
+	menuItem
+		-cb $autoLaunchMask
+	   	-l "Auto Launch Masquerade"
+		-ann "If selected this will launch the Masquerade window when a control mask is selected" 
+		-c "//This will NOT change the On/Off state of\n//the auto launch command. It is point less\n//to keep this shelf button.\n\nautoMaskCheck;"
+		autoMaskCheck
+		;
+	menuItem 
+		-d 1
+		;
+	menuItem 
+		-cb $frameHUBvalue
+		-ann "Toggle the display of the current frame"
+		-l "Frame HUD"
+		-c "//This will NOT change the On/Off state of\n//the current frame HUD. It is point less\n//to keep this shelf button.\n\nframeCheckHUB Maya"
+		maskFrameCheckMaya
+		;
+	menuItem 
+		-cb $maskInfo
+		-ann "Toggle the display of the Masquerade info"
+		-l "Masquerade Info HUD"
+		-c "//This will NOT change the On/Off state of\n//the Masquerade info HUD. It is point less\n//to keep this shelf button.\n\nmaskInfoHUB Maya"
+		maskInfoHUBMaya
+		;
+	menuItem 
+		-d 1
+		;
+	menuItem 
+		-l "Sound Manager"
+		-ann "Launches the sound manager window"
+		-i ($imagepath + "soundManShelf.bmp") 
+		-c "soundManager;"
+		;
+	menuItem 
+		-l "Frame/Time Converter"
+		-ann "Convert frames to minuets:seconds.frames, or minuets:seconds.frames to frames"
+		-i ($imagepath + "timeCon.bmp") 
+		-c "maskTimeConverter;"
+		;
+	menuItem 
+		-d 1
+		;
+	menuItem
+	   	-l "Masquerade/Persp"
+		-ann "Change panel to \"Masquerade/Persp\""
+		-i ($imagepath + "maskPersp.bmp")
+	   	-c "if (`panelConfiguration -q -ex Masquerade` != 1)\n\t{\n\t\tmaskPanel;\n\t\tsetNamedPanelLayout \"Masquerade\";\n\t}\nif (`panelConfiguration -q -ex Masquerade`)\n\t{\n\t\tsetNamedPanelLayout \"Masquerade\";\n\t}"
+		;
+	menuItem
+	   	-l "Masquerade/Persp/Graph Editor"
+		-ann "Change panel to \"Masquerade/Persp/Graph Editor\""
+		-i ($imagepath + "maskPerspGraph.bmp")
+	   	-c "if (`panelConfiguration -q -ex Masquerade` != 1)\n\t{\n\t\tmaskPanel;\n\t\tsetNamedPanelLayout \"Masquerade/Persp/Graph Editor\";\n\t}\nif (`panelConfiguration -q -ex Masquerade`)\n\t{\n\t\tsetNamedPanelLayout \"Masquerade/Persp/Graph Editor\";\n\t}"
+		;
+	menuItem 
+		-d 1
+		;
+	menuItem
+		-sm 1
+		-to 0
+	   	-l "Attributes"
+		;
+	menuItem
+	   	-l "Add Attributes"
+		-ann "Launches a window to add attributes to control masks"
+		-i ($imagepath + "addAttr.bmp")
+	   	-c " addMaskAttr;"
+		;
+	menuItem
+	   	-l "Prefix/Suffix"
+		-ann "Add prefix or suffix to selected attributes"
+		-i ($imagepath + "preSuf.bmp")
+	   	-c "maskRenameAttrWin;"
+		;
+	menuItem
+	   	-l "Remove Attribute"
+		-ann "Remove selected attributes from a selected object"
+		-i ($imagepath + "attrDel.bmp")
+	   	-c "attrDelete;"
+		;
+	setParent -m..;
+	
+	menuItem
+		-d 1
+		;
+	menuItem
+	   	-l "Get A Face Lift"
+		-ann "Check the Masquerade web site for updates"
+		-i ($imagepath + "maskWeb.bmp")
+	   	-c "showHelp -absolute \"http://www.keegan3d.com/Masquerade/Download.htm\";"
+		;
+	menuItem
+	   	-l "Masquerade Home Page"
+		-ann "Launch the masquerade web site"
+		-i ($imagepath + "maskWeb.bmp")
+	   	-c "showHelp -absolute \"http://www.keegan3d.com/Masquerade/Home.htm\";"
+		;
+	menuItem 
+		-d 1
+		;
+	menuItem
+	    -l "Help"
+		-ann "Launch help for Masquerade"
+		-i ($imagepath + "maskHelp.bmp")
+		-c "showHelp -absolute \"http://www.keegan3d.com/Masquerade/Help.htm\";"
+		;
+	
+if ($autoLaunchMask == 1)
+	{
+		$autoMask = `scriptJob -e "SelectionChanged" autoMask`;
+		print "Auto Launch Masquerade : On"; 
+		optionVar -intValue "autoLaunchMask" 1;
+	}
+	
+if ($frameHUBvalue == 1)
+	maskFrameCheck;
+
+if ($maskInfo == 1)
+	maskInfoHUBCreate;
+
+maskDir;
+
+print "Masquerade v.1.0 Beta, By David Keegan, correctly initialized\n";
+
+if (!`optionVar -exists "firstTimeMaskUser"`)
+	{
+	    if ( `window -exists firstTimeUI`)
+	    	deleteUI firstTimeUI;
+		
+	    string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+		
+	    window -tb 0 -s 0 firstTimeUI;
+	    frameLayout -lv 0;
+	    	columnLayout -adj 1;
+				text -fn "boldLabelFont" -al center "Welcome to Masquerade v1.0 Beta\nBy David Keegan";
+	    		picture -en 0 -i ($imagepath + "startScreen.bmp");
+	    		text -fn "boldLabelFont" -al center "A powerful facial animation tool for\nAlias Maya";
+				text -fn "smallFixedWidthFont" -al center "\nCopyright David Keegan 2004";
+	    		button -h 36 -l "Close" -c "closeFirstTime";	
+	    window -edit -wh 256 242 firstTimeUI;
+	    print "Masquerade v1.0 Beta By David Keegan\n";			
+	    showWindow firstTimeUI;
+		
+	    optionVar -intValue "firstTimeMaskUser" 0;
+	}
+}
+
+global proc maskShelf(int $v) 
+{
+optionVar -intValue "createMaskShelf" $v;	
+}
+
+global proc updateMaskMenu()
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+string $charName[];
+string $chars[] =`ls -tr "*_MaskControl"`;
+menu -e -dai selectedMaskLauncher;
+
+if (`size $chars` == 0)
+	menuItem -en 0 -l "None" -p selectedMaskLauncher;
+
+if (`size $chars` > 0)
+	{
+		for ($each in $chars)
+			{
+				tokenize $each "_" $charName;
+				menuItem -l $charName[0] -c ("MasqueradeUI " + $charName[0]) -p selectedMaskLauncher;
+			}
+	}
+	
+menuItem -p selectedMaskLauncher -d 1;
+
+menuItem
+	-p selectedMaskLauncher
+    -l "Update List"
+	-ann "Update the list to display all control masks in the scene"
+	-i ($imagepath + "updateList.bmp")
+	-c "updateMaskMenu;";
+
+if (`scriptedPanel -q -ex maskPanel`)
+	{
+		menu -e -dai selectedMaskLauncherPanel;
+		
+		if (`size $chars` == 0)
+			menuItem -en 0 -l "None" -p selectedMaskLauncherPanel;
+		
+		if (`size $chars` > 0)
+			{
+				for ($each in $chars)
+					{
+						tokenize $each "_" $charName;
+						menuItem -l $charName[0] -c ("switchMaskPanel  " + $charName[0]) -p selectedMaskLauncherPanel;
+					}
+			}
+			
+		menuItem -p selectedMaskLauncherPanel -d 1;
+		menuItem
+			-p selectedMaskLauncherPanel
+		    -l "Update List"
+			-ann "Update the list to display all control masks in the scene"
+			-c "updateMaskMenu;";
+	}
+}
+
+global proc maskDir()
+{
+//add folders to the current project
+string $projectDir = `workspace -q -rd`;
+
+int $MasqueradeDirExists = `filetest -d ($projectDir+"Masquerade")`;
+if ($MasqueradeDirExists == 0) 
+	{
+		chdir $projectDir;
+		system "mkdir Masquerade";	
+	}		
+	
+//Masquerade/PoseLibrary/images
+int $PoseLibraryImagesDirExists = `filetest -d ($projectDir+"Masquerade/Images")`;
+if ($PoseLibraryImagesDirExists == 0) 
+	{
+		chdir ($projectDir+"Masquerade");
+		system "mkdir Images";		
+	}
+	
+//Masquerade/PoseLibrary/Poses
+int $PoseLibraryPosesDirExists = `filetest -d ($projectDir+"Masquerade/Poses")`;
+if ($PoseLibraryPosesDirExists == 0) 
+	{
+		chdir ($projectDir+"Masquerade");
+		system "mkdir Poses";		
+	}	
+}
+
+global proc closeFirstTime()
+{
+deleteUI firstTimeUI;
+print "Masquerade v.1.0 Beta correctly initialized\n";
+}
+
+global proc autoMaskCheck()
+{
+global int $autoMask;	
+int $state = `menuItem -query -cb autoMaskCheck`;
+
+if ($state == 0)
+	{
+		scriptJob -kill $autoMask -force;
+		print "Auto Launch Masquerade : Off";
+		optionVar -intValue "autoLaunchMask" 0;
+	}
+	
+if ($state == 1)
+	{
+		$autoMask = `scriptJob -e "SelectionChanged" autoMask`;
+		print "Auto Launch Masquerade : On"; 
+		optionVar -intValue "autoLaunchMask" 1;
+	}
+	
+maskInfoHUB Maya;
+}
+
+global proc autoMask()
+{
+if (`window -q -ex Masquerade` || 
+	`window -q -ex addAttrUI` || 
+	`window -q -ex reNameAttr` || 
+	`window -q -ex nameMaskUI`);
+else
+	{
+		string $charName[];
+		string $sel[] = `ls -sl`;
+		for ($eachChar in $sel)
+			if (`match "_MaskControl" $eachChar` == "_MaskControl")
+				{
+					charHunt 0;
+					break;
+				}
+	}
+}
+
+global proc maskCreator()
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+int $w = 90;
+
+if ( `window -exists nameMaskUI`)
+	deleteUI nameMaskUI;
+
+window -t "Mask Creator" -tlb 1 -s 0 nameMaskUI;
+	columnLayout -adj 1;
+		picture -en 0 -i ($imagepath + "startScreen.bmp");
+			rowLayout
+				-cl2 left center
+				-numberOfColumns 2
+				-adjustableColumn 2
+				-columnWidth2 80 300
+				;
+			text -al "left" "Character Name";
+			textField charName;
+		setParent..;
+		checkBox -al left -l "Font Options" fontCheck;  
+			rowLayout
+				-cl4 left center center center
+				-numberOfColumns 4
+				-columnWidth4 25 $w 25 $w
+				;
+			text " ";
+			button -w $w -l "Create Mask" -c "maskCreatorWin";
+			text " ";
+			button- w $w -l "Close" -c "deleteUI nameMaskUI";
+			
+window -edit -wh 262 209 nameMaskUI;		
+showWindow nameMaskUI;
+}
+
+//create mask
+global proc maskCreatorWin ()
+{	
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+string $charsInScene[]; 
+string $multiChar[];
+int $numWords;
+int $fontState = `checkBox -query -value fontCheck`;
+string $charName = `textField -q -text charName`;
+
+//check for name
+if ( `size $charName` == 0 )
+	error "Please enter a character name";
+
+//check for symblos
+string $testName = $charName + "test";
+tokenize $testName " !@#$%^&*(){}[]-_=+':;,.<>?/" $multiChar;
+$numWords = `size($multiChar)`;
+
+if ( $numWords > 1 )
+	error "Please remove the symble from your character name \" !@#$%^&*(){}[]-_=+':;,.<>?/\"";
+
+//check if character exists
+string $chars[] =`ls -tr "*_MaskControl"`;
+for ($all in $chars)
+	{
+		tokenize $all "_" $charsInScene;
+		
+		for ($each in $charsInScene)
+			if ( $charName == $each )
+				error "Character already exists";
+	}
+	
+print "\n";	
+		
+if ( `window -exists nameMaskUI`)
+	deleteUI nameMaskUI;
+
+//face curve
+string $mask[] = `circle -n ($charName + "_MaskControl") -c 0 0 0 -nr 0 0 1 -sw 360 -r 1 -d 3 -ut 0 -tol 0.01 -s 8 -ch 0`;
+move -r 0 1.558 0 $mask;
+move -r 0 -0.45 0 ($mask[0] + ".cv[4:6]");
+makeIdentity -a 1 -t 1 -r 1 -s 1 $mask;
+xform -cp $mask;
+	
+//character name
+string $curveName[];
+if ($fontState == 1)
+	{
+		string $font= `fontDialog`;
+		string $curveName[] = `textCurves -ch 0 -f $font -t $charName`;
+	}
+	
+if ($fontState == 0)
+	{
+		string $curveName[] = `textCurves -ch 0 -f "Times New Roman|h-13|w400|c0" -t $charName`;
+	}
+	
+	ungroup;
+ungroup;
+
+string $curveNGrp = `group -n ( $charName + "_LetterGroup" ) -p $mask[0]`;
+xform -cp $curveNGrp;
+move -rpr 0 0.6 0 $curveNGrp;
+scale -r 0.14 0.14 0.14 $curveNGrp;
+move -r 0 1.558 0 $curveNGrp;
+makeIdentity -a 1 -t 1 -r 1 -s 1 $curveNGrp;
+xform -cp $curveNGrp;
+
+string $attr[] = `listAttr -k $curveNGrp`;
+	for ( $each in $attr )
+		{
+			setAttr -lock 1 ($curveNGrp + "." + $each);
+			setAttr -e -keyable 0 ($curveNGrp + "." + $each);
+		}
+		
+setAttr -lock 0 ($curveNGrp + ".sx");
+setAttr -e -keyable 1 ($curveNGrp + ".sx");	
+setAttr -lock 0 ($curveNGrp + ".sy");
+setAttr -e -keyable 1 ($curveNGrp + ".sy");
+
+string $nameCurves[] = `listRelatives -c $curveNGrp`;
+for ($eachCurve in $nameCurves)
+	{
+		string $attr[] = `listAttr -k $eachCurve`;
+		for ( $each in $attr )
+			{
+				setAttr -lock 1 ($eachCurve + "." + $each);
+				setAttr -e -keyable 0 ($eachCurve + "." + $each);
+			}	
+	}
+	
+//mouth curve
+string $mouth[] = `circle -n ( $charName + "_MouthControl" ) -c 0 0 0 -nr 0 0 1 -sw 360 -r 1 -d 3 -ut 0 -tol 0.01 -s 8 -ch 0`;
+scale -r 0.35 0.15 0 $mouth;
+move -r 0 0.558 0 $mouth;
+move -r -os -wd 0 0.1 0 ($mouth[0] + ".cv[7]") ($mouth[0] + ".cv[3]");
+makeIdentity -a 1 -t 1 -r 1 -s 1 $mouth;
+xform -cp $mouth[0];
+
+string $attr[] = `listAttr -k $mouth[0]`;
+	for ( $each in $attr )
+		{
+			setAttr -lock 1 ($mouth[0] + "." + $each);
+			setAttr -e -keyable 0 ($mouth[0] + "." + $each);
+		}
+		
+//nose curve
+string $nose[] = `circle -n ( $charName + "_NoseControl" ) -c 0 0 0 -nr 0 0 1 -sw 360 -r 1 -d 3 -ut 0 -tol 0.01 -s 10 -ch 0`;
+scale -r 0.1 0.3 0 $nose;
+move -r 0 1.258 0 $nose;
+move -r -0.25 0 0 ($nose[0] + ".cv[5]");
+move -r -0.035 0 0 ($nose[0] + ".cv[4]");
+move -r 0.25 0 0 ($nose[0] + ".cv[7]");
+move -r 0.035 0 0 ($nose[0] + ".cv[8]");
+move -r 0 -0.06 0 ($nose[0] + ".cv[1]");
+makeIdentity -a 1 -t 1 -r 1 -s 1 ;
+xform -cp $nose[0];
+
+string $attr[] = `listAttr -k $nose[0]`;
+	for ( $each in $attr )
+		{
+			setAttr -lock 1 ($nose[0] + "." + $each);
+			setAttr -e -keyable 0 ($nose[0] + "." + $each);
+		}
+		
+//eyes
+
+//left eye curve
+string $lEye[] = `circle -n ( $charName + "_LeftEyeControl" ) -c 0 0 0 -nr 0 0 1 -sw 360 -r 1 -d 3 -ut 0 -tol 0.01 -s 6 -ch 0`;
+scale -r 0.25 0.11 0 $lEye;
+move -r 0.4 1.558 0 $lEye;
+makeIdentity -a 1 -t 1 -r 1 -s 1 $lEye;
+xform -cp $lEye[0];
+
+string $attr[] = `listAttr -k $lEye[0]`;
+	for ( $each in $attr )
+		{
+			setAttr -lock 1 ($lEye[0] + "." + $each);
+			setAttr -e -keyable 0 ($lEye[0] + "." + $each);
+		}
+		
+//right eye curve
+string $rEye[] = `circle -n ( $charName + "_RightEyeControl" ) -c 0 0 0 -nr 0 0 1 -sw 360 -r 1 -d 3 -ut 0 -tol 0.01 -s 6 -ch 0`;
+scale -r 0.25 0.11 0 $rEye;
+move -r -0.4 1.558 0 $rEye;
+move -r 0 -0.03 0 $lEye.cv[0] $lEye.cv[5] $rEye.cv[2] $rEye.cv[3];
+makeIdentity -a 1 -t 1 -r 1 -s 1 $rEye;
+xform -cp $rEye[0];
+
+string $attr[] = `listAttr -k $rEye[0]`;
+	for ( $each in $attr )
+		{
+			setAttr -lock 1 ($rEye[0] + "." + $each);
+			setAttr -e -keyable 0 ($rEye[0] + "." + $each);
+		}
+		
+//left eyebrow curve
+string $lbEye[] = `circle -n ( $charName + "_LeftEyeBrowControl" ) -c 0 0 0 -nr 0 0 1 -sw 360 -r 1 -d 3 -ut 0 -tol 0.01 -s 6 -ch 0`;
+scale -r 0.3 0.05 0 $lbEye;
+move -r 0.42 1.908 0 $lbEye;
+move -r 0 -0.2 0 ($lbEye[0] + ".cv[0]") ($lbEye[0] + ".cv[5]") ($lbEye[0] + ".cv[2:3]");
+makeIdentity -a 1 -t 1 -r 1 -s 1 $lbEye;
+xform -cp $lbEye[0];
+
+string $attr[] = `listAttr -k $lbEye[0]`;
+	for ( $each in $attr )
+		{
+			setAttr -lock 1 ($lbEye[0] + "." + $each);
+			setAttr -e -keyable 0 ($lbEye[0] + "." + $each);
+		}
+		
+//right eyebrow curve
+string $rbEye[] = `circle -n ( $charName + "_RightEyeBrowControl" ) -c 0 0 0 -nr 0 0 1 -sw 360 -r 1 -d 3 -ut 0 -tol 0.01 -s 6 -ch 0`;
+scale -r 0.3 0.05 0 $rbEye;
+move -r -0.42 1.908 0 $rbEye;
+move -r 0 -0.2 0 ($rbEye[0] + ".cv[0]") ($rbEye[0] + ".cv[5]") ($rbEye[0] + ".cv[2:3]");
+makeIdentity -a 1 -t 1 -r 1 -s 1 $rbEye;
+xform -cp $rbEye[0];
+
+string $attr[] = `listAttr -k $rbEye[0]`;
+	for ( $each in $attr )
+		{
+			setAttr -lock 1 ($rbEye[0] + "." + $each);
+			setAttr -e -keyable 0 ($rbEye[0] + "." + $each);
+		}
+		
+parent $rbEye $lbEye $rEye $lEye $nose $mouth $mask;
+
+float $maskPiv[] = `pointPosition -w ($mask[0] + ".cv[5]")`;
+move $maskPiv[0] $maskPiv[1] $maskPiv[2] ($mask[0] + ".scalePivot") ($mask[0] + ".rotatePivot");
+
+createDisplayLayer -name ($charName + "_MaskLayer") $mask;
+
+select -cl;
+
+print ("A control mask for " + $charName + " was created\n");
+
+updateMaskMenu;
+addMaskAttr;
+}
+
+global proc addMaskAttr()
+{	
+if ( `window -exists addAttrUI`)
+	deleteUI addAttrUI;	
+				
+window -tlb 1 -t "Load Attributes" addAttrUI;
+
+string $addAttrForm = `formLayout -numberOfDivisions 100`;
+
+string $attrControl = `paneLayout -cn single`;
+	textScrollList -ams 1 -h 300 listAttr;
+setParent..;
+
+string $buttonControl = `columnLayout -adj 1`;
+	button -l "Add attributes to list" -c "addAttrMask";
+	button -l "Clear list" -c "addMaskAttr";
+	text "Select attributes from list, then \nselect characters control mask.";
+	button -l "Add attributes to Eye Brows" -c "transAttr LeftEyeBrow";
+	button -l "Add attributes to Eyes" -c "transAttr LeftEye";
+	button -l "Add attributes to Mouth" -c "transAttr Mouth";
+	text "Select control mask then head joint";
+	button -l "Finished"  -c "maskCam;charHunt 0";
+
+formLayout
+	-edit
+
+	-attachForm $attrControl "left" 0
+	-attachForm $attrControl "top" 0
+	-attachForm $attrControl "bottom" 175
+	-attachForm $attrControl "right" 0
+
+	-attachForm $buttonControl "left" 0
+	-attachForm $buttonControl "bottom" 0
+	-attachControl $buttonControl top 2 $attrControl
+	-attachForm $buttonControl "right" 0
+	
+	$addAttrForm;
+		
+window -edit -wh 179 514 addAttrUI;		
+showWindow addAttrUI;	
+}
+
+global proc addAttrMask()
+{
+string $objList[] = `channelBox -q -mol mainChannelBox`;
+if ( `size $objList` == 0 )
+	error "Please select an object and attributes to add to the list";
+
+string $attrList[] = `channelBox -q -sma mainChannelBox`;
+if ( `size $attrList` == 0 )
+	error "Please select attributes to add to the list";
+
+for ($each in $attrList)
+	textScrollList -e -append ( $objList[0] + "." + $each )  listAttr;
+}
+
+global proc transAttr(string $curve)
+{
+int $maskCheck;
+string $charName[];
+string $sel[] = `ls -sl`;
+tokenize $sel[0] "_" $charName;
+
+if($charName[1] == "MaskControl")
+	$maskCheck = 1;
+
+else
+	$maskCheck = 0; 
+
+string $attrList[] = `textScrollList -q -si listAttr`;
+
+if (`size $attrList`==0 || `size $sel`==0 || $maskCheck == 0)
+	error "Please select your characters control mask and all of the attributes you wish to add from the list";
+
+if (`size $attrList`==0 || `size $sel`>1)
+	error "Please select ONLY your characters control mask and attributes you wish to add to it";
+		
+for ($each in $attrList)
+	{
+	    string $attr[];
+		float $min;
+		float $max;
+		float $dv;
+		string $attrType = `nodeType $each`;
+	    tokenize $each "." $attr;
+			
+		if($attrType == "blendShape")
+			{
+				$min = 0;
+				$max = 1;
+				$dv = 0;	
+			}
+			
+		else
+			{
+				$min = `addAttr -q -minValue ($attr[0] + "." + $attr[1])`;
+				$max = `addAttr -q -maxValue ($attr[0] + "." + $attr[1])`;
+				$dv = `addAttr -q -dv ($attr[0] + "." + $attr[1])`;	
+			}
+			
+		addAttr -ln $attr[1] -at double -min $min -max $max -dv $dv ($charName[0] + "_" + $curve + "Control");
+		setAttr -e -keyable true ( $charName[0] + "_" + $curve + "Control" + "." + $attr[1]);
+		connectAttr -f ($charName[0] + "_" + $curve + "Control" + "." + $attr[1]) ($attr[0] + "." + $attr[1]);
+	}
+}
+
+global proc maskCam()
+{
+string $sel[] = `ls -sl`;
+if (`size $sel`==0)
+	error "Please select your character's control mask then their head joint";
+
+if (`size $sel`>2)
+	error "Please select ONLY your characters control mask then their head joint";
+
+string $charName[];
+tokenize $sel[0] "_" $charName;
+
+string $maskCam[] = `camera -n ($charName[0] + "_MaskCam") -centerOfInterest 5 -focalLength 35 -lensSqueezeRatio 1 -cameraScale 1 -horizontalFilmAperture 1.41732 -horizontalFilmOffset 0 -verticalFilmAperture 0.94488 -verticalFilmOffset 0 -filmFit Fill`;
+string $camGrp = `group -n ($charName[0] + "_MaskCamGroup") $maskCam`;
+
+//frame Selection
+select -r $sel[1];
+string $currentCam = `lookThru -q`;
+string $currentPanel = `getPanel -wf`;
+lookThroughModelPanel $maskCam[0] $currentPanel;
+fitPanel -selected;
+
+lookThroughModelPanel $currentCam $currentPanel;
+
+//point and parent camera
+float $t[] = `xform -q -ws -rp $sel[1]`;
+string $locator[] = `spaceLocator -n ($charName[0] + "CamLocator")`;
+move -rpr $t[0] $t[1] $t[2] $locator[0];
+parent $locator[0] $sel[1]; 
+xform -os -piv $t[0] $t[1] $t[2] $camGrp;
+parent $camGrp $locator[0]; 
+makeIdentity -a 1 -t 1 -r 1 -s 1 $camGrp;
+
+//snap mask to last joint
+string $joint[] = `pickWalk -d down $sel[1]`;
+float $tj[] = `xform -q -ws -rp $joint[0]`;
+move -r -ws $tj[0] $tj[1] $tj[2] $sel[0];
+
+if(`size($joint)` == 0)
+	parent $sel[0] $sel[1];
+
+else
+	parent $sel[0] $joint[0];
+
+select -r $sel[0];	
+}
+
+//Determin if the current selection contains a control mask
+global proc charHunt(int $c)
+{
+string $charSearch[] =`ls -tr "*_MaskControl"`;
+int $numChars = `size($charSearch)`;
+if ($numChars == 0)
+	{
+		maskCreator;
+		error "No character found, please create one.";
+	}
+	
+string $charName[];
+string $sel[] =`ls -sl`;
+int $numSel = `size($sel)`;
+int $charSelected;
+
+if ( `size $sel` == 0 )
+	{
+		switchCharWin $c;
+	}
+
+int $sn;
+int $ac=0; 
+for ($sn=0; $sn<$numSel; $sn++)
+	{	
+		if (`match "_MaskControl" $sel[$sn]` == "_MaskControl" )
+			{
+				$ac=$sn+1;
+				break;
+			}
+	}
+
+if($ac>0)
+	{
+		tokenize $sel[$ac-1] "_" $charName;
+		switch ($c)
+			{
+				case 0:
+					MasqueradeUI $charName[0];
+				break;
+					
+				case 1:
+					maskToShelf $charName[0];
+				break;
+					
+				case 2:
+					switchMaskPanel $charName[0];
+				break;
+			}
+	}
+	
+else
+	switchCharWin $c;
+}
+
+global proc launchMaskFromShelf (string $charName)
+{
+int $d = 0;
+string $chars[] =`ls -tr "*_MaskControl"`;
+
+for ($each in $chars)
+	{
+		if (($charName + "_MaskControl") == $each)
+			{
+				$d = 1;
+				break;
+			}
+	}
+	
+if($d==0)
+	importMaskUI $charName;
+
+if($d==1)
+	MasqueradeUI $charName;
+}
+
+//Masquerade UI
+global proc MasqueradeUI (string $charName)
+{	
+if ( `window -exists addAttrUI`)
+	deleteUI addAttrUI;	
+					
+global string $gCharName;
+global string $gCommandWindow;
+global int $gToggleOriginAxis;
+
+string $curve[];
+string $tabName[];
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+$gCharName = $charName;
+$curve[0] = $charName + "_LeftEyeBrowControl";
+$curve[1] = $charName + "_LeftEyeControl";
+$curve[2] = $charName + "_MouthControl";
+
+$tabName[0] = "Eye Brows";
+$tabName[1] = "Eyes";
+$tabName[2] = "Mouth";
+
+//optionVars
+if (!`optionVar -exists "autoSaveMaskPose"`)
+optionVar -intValue "autoSaveMaskPose" 0;
+
+int $autoSavePoseValue = `optionVar -q "autoSaveMaskPose"`;
+
+if (!`optionVar -exists "rMaskCam"`)
+optionVar -stringValue "rMaskCam" "y";
+
+string $rotateCam = `optionVar -q "rMaskCam"`;
+
+if (! `optionVar -ex "timeEditorMask"`)
+	optionVar -intValue "timeEditorMask" 3;
+
+int $timeEditorVar = `optionVar -q "timeEditorMask"`;
+
+if (!`optionVar -exists "maskFrameHUB"`)
+optionVar -intValue "maskFrameHUB" 0;
+
+int $frameHUBvalue = `optionVar -q "maskFrameHUB"`;
+
+if (!`optionVar -exists "maskSizeW"`)
+optionVar -intValue "maskSizeW" 766;
+
+int $maskSizeW = `optionVar -q "maskSizeW"`;
+
+if (!`optionVar -exists "maskSizeH"`)
+   optionVar -intValue "maskSizeH" 489;
+
+int $maskSizeH = `optionVar -q "maskSizeH"`;
+
+if (!`optionVar -exists "maskInfoHUB"`)
+optionVar -intValue "maskInfoHUB" 0;
+
+int $maskInfo = `optionVar -q "maskInfoHUB"`;
+
+if (!`optionVar -exists "maskMinip"`)
+optionVar -stringValue "maskMinip" "standard";
+
+string $maskMinip = `optionVar -q "maskMinip"`;
+
+if (!`optionVar -exists "maskHyper"`)
+optionVar -intValue "maskHyper" 0;
+
+int $hyper = `optionVar -q "maskHyper"`;
+
+if (!`optionVar -exists "maskSpeed"`)
+optionVar -floatValue "maskSpeed" 0.5;
+
+float $channelSpeed = `optionVar -q "maskSpeed"`;
+
+if (!`optionVar -exists "maskAttrControl"`)
+optionVar -intValue "maskAttrControl" 300;
+
+int $masterControl = `optionVar -q "maskAttrControl"`;
+
+if (!`optionVar -exists "maskresizeBy"`)
+optionVar -intValue "maskresizeBy" 10;
+
+int $resizeBy = `optionVar -q "maskresizeBy"`;
+
+if (!`optionVar -exists "showPoseWin"`)
+optionVar -intValue "showPoseWin" 0;
+
+int $showPoseWin = `optionVar -q "showPoseWin"`;
+
+maskTimePanelDel;	
+	
+//start Masquerade	
+if(`window -exists Masquerade`)
+	deleteUI -window Masquerade;
+
+window -mb 1 -t "Masquerade™ 1.0 Beta" Masquerade;
+string $facialForm = `formLayout -numberOfDivisions 100`;
+
+//FacialCam	
+string $modPane = `paneLayout -configuration "single" maskFacePanel`;
+string $modEdit = `modelEditor
+	-displayAppearance smoothShaded -dtx 1
+	-allObjects 0
+	-polymeshes 1
+	-subdivSurfaces 1
+	-nurbsSurfaces 1
+	-grid 0
+	maskFaceCam`;
+
+modelEditor -edit -camera ( $charName + "_MaskCam1" ) $modEdit;
+		
+modelEditor
+	-displayAppearance smoothShaded -dtx 1
+	-allObjects 0
+	-polymeshes 1
+	-subdivSurfaces 1
+	-nurbsSurfaces 1
+	-grid 0
+	-camera persp
+	maskSplitPanel;
+	
+setParent ..;
+
+//masquerade menu
+	menu
+		-l "Masqerade"
+		-to 0
+		-aob 1
+		;
+	menuItem
+   		-l "Save Scene"
+		-ann "Save current scene"
+   		-c "SaveScene"
+		;
+	menuItem 
+		-ob 1
+		-ann "Save current scene options"
+		-c "SaveSceneOptions"
+		;
+	menuItem
+   		-l "Save Scene As"
+		-ann "Save current scene under a new name"
+    	-c "projectViewer SaveAs"
+		;
+	menuItem 
+		-ob 1
+		-ann "Save current scene under a new name options"
+		-c "SaveSceneAsOptions"
+		;
+	menuItem
+		-d 1
+		;
+	menuItem
+   		-l "Import"
+		-ann "Add file to current scene"
+   		-c "projectViewer Import"
+		;
+	menuItem 
+		-ob 1
+		-ann "Add file to current scene options"
+		-c "ImportOptions"
+		;
+	menuItem
+		-d 1
+		;
+	menuItem 
+		-cb $maskInfo
+		-ann "Toggle the display of the Masquerade info"
+		-l "Masquerade Info HUD"
+		-c "maskInfoHUB Mask"
+		maskInfoHUBMask
+		;
+	menuItem
+		-d 1
+		;
+	menuItem
+   		-l "Set Window Size"
+		-ann "Set the window start up size to current size"
+   		-c "setMaskSize"
+		;
+	menuItem
+   		-l "Reset Window Size"
+		-ann "Reset Masquerade to its defult statr up size"
+   		-c ("reSetMaskSize " + $charName)
+		;
+	menuItem
+		-l "Resize Attributes Tab"
+		-sm 1
+		; 
+	radioMenuItemCollection;
+		menuItem
+	   		-l "10"
+			-ann "Resize attribute tabs by 10 pixles"
+	    	-c "optionVar -intValue \"maskresizeBy\" 10"
+			-rb 0
+			M10
+			;
+		menuItem
+	   		-l "20"
+			-ann "Resize attribute tabs by 20 pixles"
+	    	-c "optionVar -intValue \"maskresizeBy\" 20"
+			-rb 0
+			M25
+			;
+		menuItem
+	    	-l "50"
+			-ann "Resize attribute tabs by 50 pixles"
+	    	-c "optionVar -intValue \"maskresizeBy\" 50"
+			-rb 0
+			M50
+			;
+		menuItem -edit -rb 1 ("M" + $resizeBy);
+	setParent -m..;
+	menuItem
+		-d 1
+		;
+	menuItem
+    	-l "Character to shelf"
+		-ann ("Create a shelf button to launch Masquerade with " + $charName)
+    	-c ("maskToShelf " + $charName)
+		;
+	menuItem
+		-d 1
+		;
+	menuItem
+    	-l "About Masquerade"
+		-ann "Display information about Masquerade™"
+    	-c "aboutMask"
+		;
+	menuItem
+	    -l "Help"
+		-ann "Launch help for Masquerade"
+		-i ($imagepath + "maskHelp.bmp")
+		-c "showHelp -absolute \"http://www.keegan3d.com/Masquerade/Help.htm\";"
+		;
+	menuItem
+		-d 1
+		;
+	menuItem
+    	-l "Close"
+		-ann "Exit Masquerade"
+    	-c "deleteUI Masquerade"
+		;
+	
+//edit menu
+	menu
+		-l "Edit"
+		-to 0
+		;
+	menuItem
+    	-l "Undo"
+		-ann "Undo last action"
+    	-c "undo"
+		;
+	menuItem
+    	-l "Redo"
+		-ann "Redo last action"
+    	-c "redo"
+		;
+	menuItem
+		-d 1
+		;
+	menuItem
+    	-l "Clear Undos"
+		-ann "Clear Undos from memory"
+    	-c "flushUndo"
+		;
+	
+//camera menu
+	menu
+		-l "Camera View"
+		-to 0
+		;
+	menuItem
+		-l "Select Camera"
+		-c ("select -r " + $charName + "_MaskCam1")
+		-ann "Select characters face camera"
+		;
+	menuItem 
+		-d 1
+		;
+	radioMenuItemCollection;
+		menuItem
+	    	-l "Points"
+			-ann "Display mesh in points mode"
+	    	-c ( "modelEditor -e -displayAppearance points " + $modEdit )
+			-rb 0
+			;
+		menuItem
+	    	-l "Wireframe"
+			-ann "Display mesh in wireframe mode"
+	    	-c ( "modelEditor -e -displayAppearance wireframe " + $modEdit )
+			-rb 0
+			;
+		menuItem
+			-d 1
+			;
+		menuItem
+	    	-l "Flat Shaded"
+			-ann "Display mesh in flat shaded mode"
+	    	-c ( "modelEditor -e -displayAppearance flatShaded " + $modEdit )
+			-rb 0
+			;
+		menuItem
+	    	-l "Smooth Shading"
+			-ann "Display mesh in smooth shaded mode"
+	    	-c ( "modelEditor -e -displayAppearance smoothShaded -dtx off " + $modEdit )
+			-rb 0
+			;
+		menuItem
+	    	-l "Texture Shading"
+			-ann "Display mesh in texture shaded mode"
+	    	-c ( "modelEditor -e -displayAppearance smoothShaded -dtx on " + $modEdit )
+			-rb 1
+			;
+	setParent -m..;
+	menuItem
+		-d 1
+		;
+	menuItem
+		-cb 0
+    	-l "Wireframe on Shaded"
+		-ann "Toggle wireframe on shaded" 
+		-c "wireframeShaded"
+		wireframeShaded
+		;
+	menuItem
+		-d 1
+		;
+	menuItem 
+		-cb 0 
+		-l "Isolate Selected"
+		-ann "Toggle display of objects not selected"
+		-c "isolateMaskCheck"
+		isolateMaskCheck
+		;
+	
+//panel menu
+	menu
+		-l "Panels"
+		-to 0
+		;
+	menuItem
+    	-l "Single"
+		-ann "Single panel"
+    	-c "singleMaskView"
+		;
+	menuItem
+		-sm 1
+    	-l "Split View"
+		;
+	radioMenuItemCollection;
+		
+		//get cameras
+		string $charFaceCam[] =`ls -tr "*_MaskCam1"`;
+		string $charCurveCam[] =`ls -tr "*_CurveCam1"`;
+		string $sceneCam[] = `listCameras`;
+		select -r $sceneCam;
+		select -d $charFaceCam $charCurveCam;
+		string $camsMinusChar[] = `ls -sl`;
+		
+		for ( $cam in $camsMinusChar )
+			{
+				menuItem
+			    	-l $cam
+					-ann ("maskCam/" + $cam)
+			    	-c ("splitMaskView " + $cam)
+					("mask" + $cam)
+					;
+			}
+						
+	setParent -menu..;
+	menuItem
+		-d 1
+		;
+	menuItem
+		-sm 1
+    	-l "Time Editors"
+		;  
+	radioMenuItemCollection timeEditors;
+		menuItem
+	    	-l "Graph Editor"
+			-ann "Display Graph Editor"
+	    	-c "maskTimeEditor 0"
+			-rb 0
+			timeEditor0;
+		menuItem
+	    	-l "Trax Editor"
+			-ann "Display Trax Editor"
+	    	-c "maskTimeEditor 1"
+			-rb 0
+			timeEditor1;
+		menuItem
+	    	-l "Dope Sheet"
+			-ann "Display Dope Sheet"
+	    	-c "maskTimeEditor 2"
+			-rb 0
+			timeEditor2;
+		menuItem
+			-d 1;
+		menuItem
+	    	-l "Trax Editor/Graph Editor"
+			-ann "Display \"Trax Editor/Graph Editor\""
+	    	-c "maskTimeEditor 3"
+			-rb 0
+			timeEditor3;
+		menuItem
+	    	-l "Dope Sheet/Graph Editor"
+			-ann "Display \"Dope Sheet/Graph Editor\""
+	    	-c "maskTimeEditor 4"
+			-rb 0
+			timeEditor4;
+		menuItem
+	    	-l "Trax Editor/Dope Sheet"
+			-ann "Display \"Trax Editor/Dope Sheet\""
+	    	-c "maskTimeEditor 5"
+			-rb 0
+			timeEditor5;	
+		menuItem -edit -rb 1 ("timeEditor" + $timeEditorVar);
+	setParent -menu..;
+	menuItem
+		-d 1
+		;
+	menuItem
+		-sm 1
+		-to 1
+    	-l "Heads Up Display"
+		;
+	menuItem 
+		-cb `optionVar -query objectDetailsVisibility`
+		-l "Object Details"
+		-c "ToggleObjectDetails"
+		-ann "Toggle the display of object details"
+		objectDetailsItem
+		;
+	menuItem 
+		-cb `optionVar -query polyCountVisibility`
+		-l "Poly Count"
+		-c "TogglePolyCount"
+		-ann "Toggle the display of the component count for visible polygons"
+		polyCountItem
+		;
+	menuItem 
+		-cb `optionVar -query animationDetailsVisibility`
+		-l "Animation Details"
+		-c "ToggleAnimationDetails"
+		-ann "Toggle the display of animation details"
+		animationDetailsItem
+		;
+	menuItem 
+		-cb `optionVar -query frameRateVisibility`
+		-l "Frame Rate"
+		-c "ToggleFrameRate"
+		-ann "Toggle the display of the frame rate"
+		frameRateItem
+		;	
+	menuItem 
+		-cb $frameHUBvalue
+		-l "Current Frame"
+		-c "frameCheckHUB MaskHUB"
+		-ann "Toggle the display of the current frame"
+		maskFrameCheckMaskHUB
+		;
+	menuItem 
+		-cb `optionVar -query cameraNamesVisibility`
+		-l "Camera Names"
+		-c "ToggleCameraNames"
+		-ann "Toggle the display of the camera names"
+		cameraNamesItem
+		;
+	menuItem 
+		-cb `optionVar -query viewAxisVisibility`
+		-l "View Axis"
+		-c "ToggleViewAxis"
+		-ann "Toggle the visibility of the view axis"
+		viewAxisItem
+		;
+	menuItem 
+		-cb $gToggleOriginAxis 
+		-l "Origin Axis" 
+		-ann "Toggle the visibility of the origin axis"
+		-c "ToggleOriginAxis" 
+		originAxesItem
+		;
+	menuItem
+		-d 1
+		;
+	menuItem 
+		-l "Hide HUBS"
+		-c "hideHUB"
+		-ann "Set the display of all HUBS to \"off\""
+		;	
+	setParent -m..;
+	menuItem
+		-d 1
+		;
+	menuItem
+    	-l "Graph Editor"
+		-ann "Tear off graph editor" 
+    	-c "tearOffPanel \"Graph Editor\" \"graphEditor\" true"
+		;
+	menuItem
+    	-l "Trax Editor"
+		-ann "Tear off trax editor"
+    	-c "tearOffPanel \"Trax Editor\" \"clipEditorPanel\" true"
+		;
+	menuItem
+    	-l "Dope Sheet"
+		-ann "Tear off dope sheet"
+    	-c "tearOffPanel \"Dope Sheet\" \"dopeSheetPanel\" true"
+		;
+	menuItem
+		-d 1
+		;
+	menuItem
+    	-l "Outliner"
+		-ann "Tear off outliner"
+    	-c "tearOffPanel \"Outliner\" \"outlinerPanel\" false"
+		;
+	menuItem
+    	-l "Hypergraph"
+		-ann "Tear off hypergraph"
+    	-c "tearOffPanel \"Hypergraph\" \"hyperGraphPanel\" true"
+		;
+	menuItem
+		-d 1
+		;
+	menuItem
+    	-l "Channel Control Editor"
+		-ann "Dispaly channel control editor"
+    	-c "ChannelControlEditor"
+		;
+	menuItem
+    	-l "Attribute Editor"
+		-ann "Dispaly off attribute editor"
+    	-c "AttributeEditor"
+		;
+	menuItem
+    	-l "Attribute Spread Sheet"
+		-ann "Dispaly off attribute spread sheet"
+    	-c "SpreadSheetEditor"
+		;
+	
+//time menu
+	menu
+		-l "Time"
+		-to 0
+		;
+	menuItem 
+		-l "Sound Manager" 
+		-ann "Launches the sound manager window"
+		-c "soundManager"
+		;
+	menuItem 
+		-l "Frame/Time Converter"
+		-ann "Convert frames to minuets:seconds.frames, or minuets:seconds.frames to frames"
+		-i ($imagepath + "soundManShelf.bmp") 
+		-c "maskTimeConverter;"
+		;
+	menuItem 
+		-d 1
+		;
+	menuItem
+		-sm 1
+    	-l "Fps"
+		;
+	radioMenuItemCollection;
+		menuItem 
+			-l "game: 15 fps" 
+			-ann "Set frame rate to \"game: 15 fps\"" 
+			-c "currentUnit -t game"
+			-rb 0 gameMask
+			;
+		menuItem 
+			-l "film: 24 fps" 
+			-ann "Set frame rate to \"film: 24 fps\"" 
+			-c "currentUnit -t film"
+			-rb 0 filmMask
+			; 
+		menuItem 
+			-l "pal: 25 fps" 
+			-ann "Set frame rate to \"pal: 25 fps\""
+			-c "currentUnit -t pal"
+			-rb 0 palMask
+			; 
+		menuItem 
+			-l "ntsc: 30 fps" 
+			-ann "Set frame rate to \"ntsc: 30 fps\""
+			-c "currentUnit -t ntsc"
+			-rb 0 ntscMask
+			; 
+		menuItem 
+			-l "show: 48 fps" 
+			-ann "Set frame rate to \"show: 48 fps\""
+			-c "currentUnit -t show"
+			-rb 0 showMask
+			; 
+		menuItem 
+			-l "palf: 50 fps" 
+			-ann "Set frame rate to \"palf: 50 fps\""
+			-c "currentUnit -t palf"
+			-rb 0 palfMask
+			; 
+		menuItem 
+			-l "ntscf: 60 fps" 
+			-ann "Set frame rate to \"ntscf: 60 fps\""
+			-c "currentUnit -t ntscf"
+			-rb 0 ntscfMask
+			;
+	setParent -menu..;
+string $timeFPS = `currentUnit -q -t`;
+menuItem -edit -rb 1 ($timeFPS + "Mask");
+	menuItem
+		-sm 1
+    	-l "Looping"
+		;
+	radioMenuItemCollection;
+		menuItem
+	    	-l "Once"
+			-ann "Change play back looping to once"
+	    	-c "changeLoop once"
+			-rb 0
+			onceMask
+			;
+		menuItem
+	    	-l "Oscillate"
+			-ann "Change play back looping to oscillate"
+	    	-c "changeLoop oscillate"
+			-rb 0
+			oscillateMask
+			;
+		menuItem
+	    	-l "Continuous"
+			-ann "Change play back looping to continuous"
+	    	-c "changeLoop continuous"
+			-rb 0
+			continuousMask
+			;
+	setParent -m..;
+string $currentLoop = `playbackOptions -q -l`;
+menuItem -edit -rb 1 ($currentLoop + "Mask");
+	menuItem 
+		-cb $frameHUBvalue
+		-l "Frame HUD"
+		-ann "Toggle the display of the current frame"
+		-c "frameCheckHUB Mask"
+		maskFrameCheckMask
+		;
+int $timeCodeValue = `animDisplay -q -tc`;
+	menuItem
+		-cb $timeCodeValue
+		-ann "Toggle the dispay of a time code"
+    	-l "Time Code"
+		-c "timeCodeCheck"
+		timeCodeCheck
+		;
+	menuItem
+		-d 1; 
+	menuItem
+		-subMenu 1
+    	-l "Play Blast"
+		;
+	menuItem
+    	-l "Window Media Player"
+		-ann "Playblast to window media player"
+    	-c ( "modelEditor -e -av " + $modEdit + "; playblast -p 100")
+		;
+	menuItem 
+    	-l "F Check"
+		-ann "Playblast to f Check"
+    	-c ( "modelEditor -e -av " + $modEdit + "; playblast -format image -clearCache 0 -viewer 1 -showOrnaments 1 -p 100")
+		;
+	menuItem
+		-d 1
+		;
+	menuItem 
+    	-l "Maskblast"
+		-ann "Open playblast options"
+    	-c "maskBlast"
+		;
+	setParent -m..;
+	menuItem
+		-d 1
+		;
+	menuItem
+    	-l "Animation Preferences"
+		-ann "open animation preferences"
+    	-c "preferencesWnd \"timeline\""
+		;
+
+//characters menu
+	menu
+		-l "Character"
+		-to 0
+		;
+	menuItem
+		-l "Key All"
+		-ann "Key All" 
+		-c ( "keyMaskAll " + $charName)
+		;
+	menuItem 
+		-l "Remove Keys"
+		-ann "Remove all key frames" 
+		-c ( "removeKeysAll " + $charName)
+		;
+	menuItem 
+		-l "Reset"
+		-ann "Reset all sliders to defult value" 
+		-c ( "resetMaskAll " + $charName)
+		;
+//pose Library
+	menu
+		-l "Pose Library"
+		-to 0
+		;
+	menuItem 
+		-l "Show Command Window"
+		-ann "Show pose button command in window before createing button"
+		-c "showWindowChangeOption"
+		-cb $showPoseWin 
+		showPoseAttrWinToggle
+		;
+	menuItem 
+		-d 1
+		;
+	menuItem
+		-sm 1
+    	-l "Create Pose"
+		;
+	menuItem 
+		-l "Create Pose For Checked Curves" 
+		-ann "Create pose button for checked control curves" 
+		-c ( "poseButtonChecked " + $charName)
+		;
+	menuItem 
+		-d 1
+		;
+	
+for ($i=0; $i<3; $i++)
+	{
+		menuItem
+	    	-l ("Create Pose (" + $tabName[$i] + ")")
+			-ann ("Create Pose (" + $tabName[$i] + ")") 
+			-c ( "poseButtonOne " + $curve[$i])
+			;
+	}
+	
+	menuItem
+		-d 1
+		;
+	menuItem
+    	-l "Create Pose For All"
+		-ann "Create ppose for all attributes"
+    	-c ("poseButtonAll " + $charName)
+		;
+	setParent -m..;
+	menuItem
+		-d 1
+		;
+	menuItem
+    	-l "Save Pose Library"
+		-ann "save the current pose library"
+    	-c ( "savePoseButtons " + $charName)
+		;
+	menuItem
+		-cb $autoSavePoseValue
+    	-l "Auto Save Pose Library"
+		-ann "auto save pose library : OFF"
+    	-c ("autoSavePoseLM " + $charName)
+		autoSavePoseLM
+		;
+	menuItem
+    	-l "Import Library"
+		-ann "Add library to current one"
+    	-c "openLibraryOptions"
+		;
+	menuItem
+    	-l "New Library"
+		-ann "Remove library from Masquerade"
+    	-c ("newLibrary " + $charName)
+		;
+	menuItem
+		-d 1
+		;
+	menuItem
+    	-l "Delete Library"
+		-ann "Delete library and all images associated with it"
+    	-c "deleteLibrary"
+		;
+
+//tools
+int $toolButtsWH = 45;
+string $minButts = `columnLayout-adj 1`;
+	text -al left "Tool Box:";
+	separator -h 3;
+	gridLayout -nc 3 -cwh $toolButtsWH $toolButtsWH;
+		iconTextButton -st "iconOnly" -i1 ($imagepath + "move.bmp") -ann "Move" -c "MoveTool";
+		iconTextButton -st "iconOnly" -i1 ($imagepath + "rotate.bmp")  -ann "Rotate" -c "RotateTool";
+		iconTextButton -st "iconOnly" -i1 ($imagepath + "scale.bmp") -ann "Scale" -c "ScaleTool";
+		
+		iconTextButton -st "iconOnly" -i1 ($imagepath + "camSplitView.bmp") -ann "Face Camera/Persp" -c "splitMaskView persp" switchCamImage;
+		iconTextButton -st "iconOnly" -i1 ($imagepath + "timeEditorTraxGraph.bmp")  -ann "Change " -c "maskTimeEditor 3";
+		iconTextButton -st "iconOnly" -i1 ($imagepath + "timeEditorDopeGraph.bmp") -ann "Scale" -c "maskTimeEditor 4";
+		
+	setParent..;
+setParent..;
+			
+string $controlMask = `columnLayout -adj 1`;
+int $selMaskW = 22;
+string $selImage[];
+string $picName[];
+string $menuName[];
+
+$selImage[0] = "selectMaskBrow";
+$selImage[1] = "selectMaskEye";
+
+$picName[0] = "Brow";
+$picName[1] = "Eye";
+
+$menuName[0] = "Eye Brow";
+$menuName[1] = "Eye";
+
+picture  -i ($imagepath + "selectMaskTop.bmp");
+	popupMenu -b 1;
+		menuItem -l "Select All" -c ("select -r " + $curve[0] + " " + $curve[1] + " " + $curve[2]);
+		menuItem -l "Clear Selection" -c "select -cl";
+	popupMenu;
+		menuItem -l "Select Eye Brow" -c ("select -r " + $curve[0]);
+		menuItem -l "Select Eye" -c ("select -r " + $curve[1]);
+		menuItem -l "Select Mouth" -c ("select -r " + $curve[2]);
+		
+//Eye Brow/Eyes
+for($p=0; $p<2; $p++)
+	{
+		rowLayout -nc 3 -cw3 $selMaskW 92 $selMaskW;
+			picture -i ($imagepath + $selImage[$p] + "Left.bmp") ;
+			picture -i ($imagepath + $selImage[$p] + ".bmp") ("select" + $picName[$p]);
+			popupMenu -b 1 ("menu" + $picName[$p]);
+				menuItem -l ("Select " + $menuName[$p]) -c ("select -r " + $curve[$p]);
+			picture -i ($imagepath + $selImage[$p] + "Right.bmp");
+		setParent..;
+	}
+picture -en 0 -i ($imagepath + "selectMaskMiddle.bmp");	
+//mouth
+rowLayout -nc 3 -cw3 44 48 44;
+	picture -i ($imagepath + "selectMaskMouthLeft.bmp");
+	picture -i ($imagepath + "selectMaskMouth.bmp") selectMouth;
+	popupMenu -b 1 "menuMouth";
+		menuItem -l "Select Mouth" -c ("select -r " + $curve[2]);
+	picture -i ($imagepath + "selectMaskMouthRight.bmp");
+setParent..;
+picture -i ($imagepath + "selectMaskBottom.bmp");		
+
+float $currentTime = `currentTime -q`;
+floatField -pre 2 -v $currentTime -ec "setCurrentTime" curentFrame;
+	setParent..;
+setParent..;
+
+//time slider
+string $timeControl = `columnLayout -adj 1 -rs 3 `;
+
+rowLayout -cl4 center center center center -nc 4 -cw4 22 170 50 262 -adj 3;
+	picture -i ($imagepath + "maskCam.bmp");
+		popupMenu -b 1;
+			menuItem -l "-90" -c ("snapRotateCam " + $charName + " -90");
+			menuItem -l "0" -c ("snapRotateCam " + $charName + " 0");
+			menuItem -l "90" -c ("snapRotateCam " + $charName + " 90");
+			menuItem -l "180" -c ("snapRotateCam " + $charName + " 180");
+	
+	attrFieldSliderGrp 
+		-pre 3
+		-cat 1 right 5 
+		-cw 1 1
+		-cw 2 50
+		-cw 3 120
+		-l " "  
+		-min -90 -max 270
+		-ann ("Rotate Camera : " + $rotateCam)
+		-at ($charName + "_MaskCamGroup.r" + $rotateCam)
+		rotateFaceCam;
+	popupMenu;
+		radioMenuItemCollection;
+			menuItem -rb 0 -l "Rotate X" -c ("attrFieldSliderGrp -edit -pre 3 -cat 1 right 5 -cw 1 1 -cw 2 50 -cw 3 120 -ann \"Rotate Camera : X \" -l \"Rotate Camera\" -min -90 -max 270 -at \"" + $charName + "_MaskCamGroup.rx\" rotateFaceCam; optionVar -stringValue \"rMaskCam\" \"x\"") x;
+			menuItem -rb 0 -l "Rotate Y" -c ("attrFieldSliderGrp -edit -pre 3 -cat 1 right 5 -cw 1 1 -cw 2 50 -cw 3 120 -ann \"Rotate Camera : Y \" -l \"Rotate Camera\" -min -90 -max 270 -at \"" + $charName + "_MaskCamGroup.ry\" rotateFaceCam; optionVar -stringValue \"rMaskCam\" \"y\"") y;
+			menuItem -rb 0 -l "Rotate Z" -c ("attrFieldSliderGrp -edit -pre 3 -cat 1 right 5 -cw 1 1 -cw 2 50 -cw 3 120 -ann \"Rotate Camera : Z \" -l \"Rotate Camera\" -min -90 -max 270 -at \"" + $charName + "_MaskCamGroup.rz\" rotateFaceCam; optionVar -stringValue \"rMaskCam\" \"z\"") z;
+		menuItem -edit -rb 1 $rotateCam;
+	
+	text " ";
+	
+	//Play Back Buttons
+	int $cellWH = 26;
+	int $timeButtWH = $cellWH;
+	int $autoKey = `autoKeyframe -q -state`;
+	gridLayout -numberOfColumns 10 -cellWidthHeight $cellWH $cellWH;
+			symbolButton 
+					  -w $timeButtWH
+					  -h $timeButtWH
+		  			  -i ($imagepath + "timeStart.bmp") 
+		   			  -ann "Go to start of playback range" 
+		   			  -c "playButtonStart"
+					  ;
+			symbolButton
+					  -w $timeButtWH
+					  -h $timeButtWH						
+					  -i ($imagepath + "timeStepBack.bmp") 
+					  -ann "Go back one frame" 
+					  -c "playButtonStepBackward"
+					  ; 
+			symbolButton
+					  -w $timeButtWH
+					  -h $timeButtWH				
+		   			  -i ($imagepath + "timeBackKey.bmp") 
+					  -ann "Step back one key frame" 
+					  -c "currentTime -edit `findKeyframe -timeSlider -which previous`"
+					  ;
+			symbolButton  
+					  -w $timeButtWH
+					  -h $timeButtWH				  
+		   			  -i ($imagepath + "timeBackward.bmp")
+					  -ann "Play backwards. Pressing the ESC key will stop playback" 
+					  -c "maskPlayButtonBackward"
+					  playB
+					  ; 
+			symbolButton
+					  -w $timeButtWH
+					  -h $timeButtWH				  
+		   			  -i ($imagepath + "timePlay.bmp")
+					  -ann "Play forwards. Pressing the ESC key will stop playback"
+					  -c "maskPlayButtonForward"
+					  playF
+					  ;
+			symbolButton 
+					  -w $timeButtWH
+					  -h $timeButtWH				  
+		   			  -i ($imagepath + "timeNextKey.bmp") 
+					  -ann "Step forward one key frame" 
+					  -c "currentTime -edit `findKeyframe -timeSlider -which next`"
+					  ;
+			symbolButton
+					  -w $timeButtWH
+					  -h $timeButtWH				  
+		   			  -i ($imagepath + "timeStepForward.bmp") 
+					  -ann "Step forward one frame" 
+					  -c "playButtonStepForward"
+					  ; 
+			symbolButton
+					  -w $timeButtWH
+					  -h $timeButtWH				  
+		   			  -i ($imagepath + "timeEnd.bmp") 
+					  -ann "Go to end of playback range" 
+					  -c "playButtonEnd"
+					  ;
+			symbolButton  
+					  -w $timeButtWH
+					  -h $timeButtWH
+		   			  -i ($imagepath + "loop_" + $currentLoop + ".bmp") 
+					  -ann "Change loopong state" 
+					  -c "maskTimeLoop"
+					  maskLoop;
+   			symbolCheckBox  
+					  -w $timeButtWH
+					  -h $timeButtWH
+					  -ofi ($imagepath + "autoKeyFalse.bmp")
+	   			      -oni ($imagepath + "autoKeyTrue.bmp")
+				      -ofc "autoKeyframe -state false"
+				      -onc "autoKeyframe -state true"
+				      -ann "Auto keyframe toggle"  
+				      -v $autoKey;
+	setParent ..;
+setParent..;
+
+//timeline
+float $minTime = `playbackOptions -q -min`;
+float $maxTime = `playbackOptions -q -max`;
+float $minPlay = `playbackOptions -q -ast`;
+float $maxPlay = `playbackOptions -q -aet`;
+
+int $fieldH = 19;			
+int $timeSize = 50;	
+	
+rowLayout 
+	-cl3 left center right
+	-nc 3 -cw3 $timeSize $timeSize $timeSize 
+	-rat 2 "top" 1 
+	-adj 2;
+
+	columnLayout;
+		floatField -w $timeSize -h $fieldH -v $minPlay -pre 2 -ann "Start time" -ec "maskMinPlay" maskMinPlay;
+		floatField -w $timeSize -h $fieldH -v $minTime -pre 2 -ann "Playback start time" -ec "maskMinTime" maskMinTime;
+	setParent..;
+	
+	frameLayout -lv 0;				
+		timePort -h 32 maskTimeSlider;
+			popupMenu;
+				menuItem 
+					-l "Sound Manager" 
+					-ann "Launches the sound manager window"
+					-c "soundManager"
+					;
+				menuItem 
+					-l "Frame/Time Converter"
+					-ann "Convert frames to minuets:seconds.frames, or minuets:seconds.frames to frames"
+					-i ($imagepath + "soundManShelf.bmp") 
+					-c "maskTimeConverter;"
+					;
+				menuItem 
+					-d 1
+					;
+				menuItem
+					-sm 1
+			    	-l "Fps"
+					;
+				radioMenuItemCollection;
+					menuItem 
+						-l "game: 15 fps" 
+						-ann "Set frame rate to \"game: 15 fps\"" 
+						-c "currentUnit -t game"
+						-rb 0 gameMaskTime
+						;
+					menuItem 
+						-l "film: 24 fps" 
+						-ann "Set frame rate to \"film: 24 fps\"" 
+						-c "currentUnit -t film"
+						-rb 0 filmMaskTime
+						; 
+					menuItem 
+						-l "pal: 25 fps" 
+						-ann "Set frame rate to \"pal: 25 fps\""
+						-c "currentUnit -t pal"
+						-rb 0 palMaskTime
+						; 
+					menuItem 
+						-l "ntsc: 30 fps" 
+						-ann "Set frame rate to \"ntsc: 30 fps\""
+						-c "currentUnit -t ntsc"
+						-rb 0 ntscMaskTime
+						; 
+					menuItem 
+						-l "show: 48 fps" 
+						-ann "Set frame rate to \"show: 48 fps\""
+						-c "currentUnit -t show"
+						-rb 0 showMaskTime
+						; 
+					menuItem 
+						-l "palf: 50 fps" 
+						-ann "Set frame rate to \"palf: 50 fps\""
+						-c "currentUnit -t palf"
+						-rb 0 palfMaskTime
+						; 
+					menuItem 
+						-l "ntscf: 60 fps" 
+						-ann "Set frame rate to \"ntscf: 60 fps\""
+						-c "currentUnit -t ntscf"
+						-rb 0 ntscfMaskTime
+						;
+				setParent -menu..;
+			string $timeFPS = `currentUnit -q -t`;
+			menuItem -edit -rb 1 ($timeFPS + "MaskTime");
+				menuItem
+					-sm 1
+			    	-l "Looping"
+					;
+				radioMenuItemCollection;
+					menuItem
+				    	-l "Once"
+						-ann "Change play back looping to once"
+				    	-c "changeLoop once" 
+						-rb 0
+						onceTime
+						;
+					menuItem
+				    	-l "Oscillate"
+						-ann "Change play back looping to oscillate"
+				    	-c "changeLoop oscillate"
+						-rb 0
+						oscillateTime
+						;
+					menuItem
+				    	-l "Continuous"
+						-ann "Change play back looping to continuous"
+				    	-c "changeLoop continuous"
+						-rb 0
+						continuousTime
+						;
+				setParent -menu..;
+			menuItem -edit -rb 1 ($currentLoop + "Time");
+				menuItem 
+					-cb $frameHUBvalue
+					-l "Frame HUD"
+					-ann "Toggle the display of the current frame"
+					-c "frameCheckHUB MaskTime"
+					maskFrameCheckMaskTime
+					;
+				menuItem
+					-cb $timeCodeValue
+					-ann "Toggle the dispay of a time code"
+			    	-l "Time Code"
+					-c "timeCodeCheckTime"
+					timeCodeCheckTime
+					;
+				menuItem
+					-d 1
+					; 
+				menuItem
+					-sm 1
+			    	-l "Play Blast"
+					;
+				menuItem
+			    	-l "Window Media Player"
+					-ann "Playblast to window media player"
+			    	-c ( "modelEditor -e -av " + $modEdit + "; playblast -p 100")
+					;
+				menuItem 
+			    	-l "F Check"
+					-ann "Playblast to f Check"
+			    	-c ( "modelEditor -e -av " + $modEdit + "; playblast -format image -clearCache 0 -viewer 1 -showOrnaments 1 -p 100")
+					;
+				menuItem
+					-d 1
+					;
+				menuItem 
+			    	-l "Maskblast"
+					-ann "Open playblast options"
+			    	-c "maskBlast"
+					;
+				setParent -m..;
+				menuItem
+					-d 1
+					;
+				menuItem
+			    	-l "Animation Preferences"
+					-ann "open animation preferences"
+			    	-c "preferencesWnd \"timeline\""
+					;
+			setParent..;	
+
+	columnLayout;
+		floatField -w $timeSize -h $fieldH -v $maxTime -pre 2 -ann "Playback end time" -ec "maskMaxTime" maskMaxTime;
+		floatField -w $timeSize -h $fieldH -v $maxPlay -pre 2 -ann "End time" -ec "maskMaxPlay" maskMaxPlay;
+	setParent..;
+setParent..;
+	
+rangeControl -h 20 -minRange $minPlay -maxRange $maxPlay maskRangeSlider;
+setParent..;
+
+//Time Editors
+maskTimePanelDel;
+string $graphControl =`paneLayout -cn "single" timeEditorPanel`;
+		
+paneLayout -cn "horizontal2" -paneSize 1 100 30 maskAnimationEditors;
+	
+scriptedPanel -l "Mask_TraxEditor" -typ clipEditorPanel -p maskAnimationEditors maskTraxEditor;	
+
+scriptedPanel -l "Mask_GraphEditor" -typ graphEditor -p maskAnimationEditors maskGraphEditor;
+
+maskTimeEditor $timeEditorVar;
+
+		setParent..;
+	setParent..;
+setParent..;
+
+string $helpControl = `frameLayout -lv 0 -bs "etchedOut"`;
+columnLayout -adj 1;
+	helpLine;
+
+	setParent..;
+setParent..;	
+
+string $inOutControl = `paneLayout -cn "single"`;
+	commandLine;
+setParent..;
+
+string $comandMask = `symbolButton -c ("showWindow " + $gCommandWindow) -i ($imagepath + "maskScriptEditor.bmp")`;
+
+string $charColumn =`paneLayout -configuration "single" charColumn`;
+
+//charTab	
+int $colW = 42;	
+int $stepKeyWH = 15;
+
+paneLayout -configuration "single" $charName;
+	tabLayout -imw 2 -imh 2 attrTablay;
+
+for ($c=0; $c<3; $c++)
+	{
+		string $attrForm = `formLayout -numberOfDivisions 100 $tabName[$c]`;
+		gridLayout -nc 6 -cwh $colW $colW;
+			iconTextButton 
+				-st "iconOnly" 
+				-ann "Create Pose(Eye Brows)" 
+				-i1($imagepath  + "createPose.bmp") 
+				-c ( "poseButtonOne " + $charName + " " + $curve[$c])
+				;
+			iconTextButton 
+				-st "iconOnly"  
+				-i1 ($imagepath + "keyAll.bmp") 
+				-ann "Key All" 
+				-c ( "keyMask " + $curve[$c])
+				;
+			iconTextButton 
+				-st "iconOnly"  
+				-i1 ($imagepath + "removeKey.bmp") 
+				-ann "Remove all key frames" 
+				-c ( "removeKeys " + $curve[$c])
+				;
+			iconTextButton 
+				-st "iconOnly"  
+				-i1 ($imagepath + "zeroOut.bmp") 
+				-ann "Reset all sliders to defult value" 
+				-c ( "resetMask " + $curve[$c])
+				;
+			iconTextButton 
+				-st "iconOnly" 
+				-ann "Check attributes to be keyed" 
+				-i1($imagepath  + "checkKey.bmp") 
+				-c ("checkKeyUI " + $curve[$c])
+				;
+		setParent..;
+		string $attrScroll= `scrollLayout -cr 1 -hst 0`;
+			formLayout
+				-edit
+		
+				-attachForm $attrScroll "left" 0
+				-attachForm $attrScroll "top" ($colW+2)
+				-attachForm $attrScroll "bottom" 0
+				-attachForm $attrScroll "right" 0
+		
+				$attrForm;
+		columnLayout -adj 1;
+		
+		string $attr[] = `listAttr -k $curve[$c]`;
+		
+		int $nameW=0;
+		for ( $each in $attr )
+			if ( `size($each)` > $nameW )
+				$nameW = `size($each)`;
+			
+			for ($each in $attr)
+				{
+					float $min = `addAttr -q -minValue ($curve[$c] + "." + $each)`;
+					float $max = `addAttr -q -maxValue ($curve[$c] + "." + $each)`;
+									
+					rowLayout
+						-nc 4
+						-cl4 left center right right
+						-cw4 ($stepKeyWH*3) 104 30 30
+						-rat 1 top 2
+						-adj 2;
+					
+						rowLayout 
+							-nc 3 
+							-cl3 left center left
+							-cw3 $stepKeyWH $stepKeyWH $stepKeyWH
+							($each + "MaskAttrRow"); 
+							iconTextButton 
+								-st "textOnly" 
+								-w $stepKeyWH 
+								-h $stepKeyWH 
+								-l "<"
+								-c ("backKey " + $curve[$c] + "." + $each)
+								("backKey" + $each)
+								;
+							iconTextCheckBox
+								-st "iconOnly" 
+								-i1 ($imagepath + "stepKeyOff.bmp")
+								-w $stepKeyWH 
+								-h $stepKeyWH  
+								-onc ("setKeyStep " + $curve[$c] + " " + $each) 
+								-ofc ("removeKeyStep " + $curve[$c] + " " + $each)
+								("stepKey" + $each)
+								;
+							iconTextButton 
+								-st "textOnly"  
+								-w $stepKeyWH 
+								-h $stepKeyWH 
+								-l ">"
+								-c ("advanceKey " + $curve[$c] + "." + $each)
+								("advanceKey" + $each)
+								;
+						setParent..;
+						
+						attrFieldSliderGrp
+							-pre 3 
+							-cat 1 right 5 
+							-cw 1 ($nameW *7)  
+							-cw 2 40
+							-cw 3 58 
+							-min $min
+							-max $max
+							-at ($curve[$c] + "." + $each)
+							-adjustableColumn 3
+							-columnAlign 1 right
+							-columnWidth 4 1
+							($each + "maskWin")
+							;						
+						symbolButton
+							-ann ("Set key for : " + $each ) 
+							-image ($imagepath + "keyFrame.bmp")
+							-c ( "setKeyframe " + $curve[$c] + "." + $each + ";keyButtonChange")
+							;						
+						symbolCheckBox  
+							-ann ("Toggle auto key for : " + $each)
+							-offImage ($imagepath + "autoKeyFalseI.bmp")
+							  -onImage ($imagepath + "autoKeyTrueI.bmp")
+							-offCommand ( "maskSliderAutoKeyOff " + $each)
+							-onCommand ("maskSliderAutoKeyOn " + $curve[$c] + " " + $each)
+							($each + "MaskAutoKey")
+							;
+					setParent.. ;
+				}
+				setParent.. ;
+			setParent.. ;
+		setParent.. ;
+	}
+
+//pose Tab
+string $poseForm = `formLayout -numberOfDivisions 100 "Pose Library"`;
+gridLayout -nc 7 -cwh $colW $colW;
+	iconTextButton 
+		-st "iconOnly" 
+		-ann "Create pose button" 
+		-i1($imagepath  + "createPose.bmp") 
+		-c ( "poseButtonAll " + $charName)
+		;
+	iconTextButton 
+		-st "iconOnly" 
+		-ann "Create pose button for checked control curves" 
+		-i1($imagepath  + "createPoseCheck.bmp") 
+		-c ( "poseButtonChecked " + $charName)
+		;
+	iconTextButton 
+		-st "iconOnly" 
+		-ann "New Library" 
+		-i1 ($imagepath  + "newLibrary.bmp") 
+		-c ("newLibrary " + $charName)
+		;
+	iconTextButton 
+		-st "iconOnly" 
+		-ann "Import Library" 
+		-i1 ($imagepath  + "importLibrary.bmp") 
+		-c ("select -r " + $charName + "_MaskControl" + ";openLibraryOptions")
+		;
+	iconTextButton 
+		-st "iconOnly"  
+		-ann "Save Pose" 
+		-i1 ($imagepath  + "saveLibrary.bmp") 
+		-c ( "savePoseButtons " + $charName)
+		;
+	iconTextCheckBox 
+		-st "iconOnly"
+		-ann "auto save pose library : OFF" 
+		-onc ("iconTextCheckBox -edit -ann \"auto save pose library : ON\" -i1 \"" + $imagepath + "autoPoseOn.bmp\" autoSavePose;savePoseButtons " + $charName + ";optionVar -intValue \"autoSaveMaskPose\" 1;menuItem -edit -cb 1 -ann \"auto save pose library : ON\" autoSavePoseLM") 
+		-ofc ("iconTextCheckBox -edit -ann \"auto save pose library : OFF\" -i1 \"" + $imagepath  + "/autoPoseOff.bmp\" autoSavePose; optionVar -intValue \"autoSaveMaskPose\" 0;menuItem -edit -cb 0 -ann \"auto save pose library : OFF\" autoSavePoseLM")
+		-v $autoSavePoseValue
+		autoSavePose
+		;
+	iconTextButton 
+		-st "iconOnly"  
+		-ann "Delete Library" 
+		-i1 ($imagepath  + "/deleteLibrary.bmp") 
+		-c ("deleteLibrary " + $charName)
+		;
+	
+if ($autoSavePoseValue == 1)
+	{
+		iconTextCheckBox -edit -i1 ($imagepath + "autoPoseOn.bmp") -ann "auto save pose library : ON" autoSavePose;
+		menuItem -edit -ann "Auto save pose library : ON" autoSavePoseLM;
+	}
+if ($autoSavePoseValue == 0)
+	{
+		iconTextCheckBox -edit -i1 ($imagepath + "autoPoseOff.bmp") -ann "auto save pose library : OFF" autoSavePose;
+		menuItem -edit -ann "Auto save pose library : OFF" autoSavePoseLM;
+	}		
+setParent..;
+
+string $scrollPose = `scrollLayout -cr 1 -hst 0 poseScroll`;
+	formLayout
+		-edit
+
+		-attachForm $scrollPose "left" 0
+		-attachForm $scrollPose "top" ($colW+2)
+		-attachForm $scrollPose "bottom" 0
+		-attachForm $scrollPose "right" 0
+
+		$poseForm;
+	
+columnLayout -adj 1 posCol;
+
+int $poseWH = 87;
+gridLayout -cr 1 -aec 0 -numberOfColumns 3 -cellWidthHeight $poseWH ($poseWH+20) poseLibrary;
+
+			setParent.. ;
+		setParent..;
+	setParent..;
+setParent..;
+
+//channel/Layer
+string $layers[] = `gridLayout -q -ca LayerEditorDisplayLayerLayout`;
+int $panelH = (`size($layers)`*8)+10;
+int $chanButtW = 30;
+	if ($panelH >40)
+		$panelH = 40;
+	
+string $channelForm = `formLayout -numberOfDivisions 100 "Channel Box"`;
+string $channelColumn = `columnLayout -adj 1`;
+
+text -fn "boldLabelFont" -al left "Channel Box";
+separator -st "single";  
+rowLayout 
+	-cl3 left center right
+	-nc 3 
+	-cw3 ($chanButtW*3) 50 ($chanButtW*3) 
+	-adj 2;
+
+	gridLayout -nc 3 -cwh $chanButtW $chanButtW;
+		iconTextButton -st "iconOnly" -c "paneLayout -edit -paneSize 2 100 0 channelPane" -ann "Display channel box full" -i1 ($imagepath  + "/channel.bmp");
+		iconTextButton -st "iconOnly" -c "paneLayout -edit -paneSize 2 0 100 channelPane" -ann "Display layer editor full" -i1 ($imagepath  + "/layer.bmp");
+		iconTextButton -st "iconOnly" -c ("paneLayout -edit -paneSize 2 100 " +  $panelH + " channelPane") -ann "Display layer editor and channel box in split view" -i1 ($imagepath  + "/layerChannel.bmp");
+	setParent..;
+	
+	text " ";
+	
+	gridLayout -nc 3 -cwh $chanButtW $chanButtW;
+		symbolButton
+			-ann "Toggle between minipulators/no minipulators/hiden minipulators"
+			-i ($imagepath + "selectTool" + $maskMinip + ".bmp")
+			-c "toggleMaskMinip"
+			maskMinip
+			;		
+		symbolButton 
+			-ann "Change the speed at with the channel slider changes the attribute"
+			-i ($imagepath + "speed" + $channelSpeed + ".bmp")
+			-c "speedChange"
+			changeSpeedButt
+			;						
+		symbolCheckBox  
+			-ann "Toggle linear or hyperbolic channel slider"
+			-offImage ($imagepath + "hyperFalse.bmp")
+			-onImage ($imagepath + "hyperTrue.bmp")
+			-onCommand "channelBoxHyper 1"
+			-offCommand "channelBoxHyper 0"
+			-v $hyper
+			changeHyperButt
+			;
+		setParent..;
+	setParent..;
+setParent..;
+
+string $channelControl = `paneLayout -cn "horizontal2" -paneSize 2 100 $panelH channelPane`;
+	channelBox -hyp $hyper -spd $channelSpeed -mnp $maskMinip maskKeyChannelBox;
+		popupMenu;
+			menuItem -l "Key Selected" -c "MKeySelect";
+			menuItem -l "Key All" -c "MKeyAll";
+			menuItem -d 1;
+			menuItem -l "Break Connection" -c "breakMKeyConnection";
+			
+int $wh = 22;
+scrollLayout -cr 1 -hst 0;
+columnLayout -adj 1 maskLayerCol;
+text -fn "boldLabelFont" -al "left" "Layer Editor";
+separator -st "single"; 
+for ($each in $layers)
+	{
+		string $state = `layerButton -q -ls $each`;
+		int $vis = `getAttr ($each + ".visibility")`;
+		rowLayout 
+			-cl3 left center right
+			-nc 3 
+			-cw3 ($wh+3) ($wh+3) 50 
+			-adj 3;
+		
+			if ($vis == 0) 
+				iconTextButton 
+					-h $wh 
+					-w $wh 
+					-st "iconOnly" 
+					-i1 ($imagepath + "visUpMSK.bmp") 
+					-c ("layerVis " + $each) 
+					($each + "MSKvis")
+					;
+							
+			if ($vis == 1) 
+				iconTextButton 
+					-h $wh 
+					-w $wh 
+					-st "iconOnly" 
+					-i1 ($imagepath + "visDownMSK.bmp") 
+					-c ("layerVis " + $each) 
+					($each + "MSKvis")
+					;
+			
+			iconTextButton 
+				-h $wh 
+				-w $wh 
+				-st"iconOnly" 
+				-i1 ($imagepath + $state + "MSK.bmp") 
+				-c ("layerState " + $each) 
+				($each + "MSKstate")
+				;
+			
+			text -fn "boldLabelFont" $each;
+				popupMenu;
+				radioMenuItemCollection; 
+					menuItem -l "Template" -c ("menuSetLayer " + $each + " template 1") -rb 0 ($each + "Popuptemplate");
+					menuItem -l "Reference" -c ("menuSetLayer " + $each + " reference 2") -rb 0 ($each + "Popupreference");
+					menuItem -l "Normal" -c ("menuSetLayer " + $each + " normal 0") -rb 0 ($each + "Popupnormal"); 
+					menuItem -d 1;
+					
+					if ($vis == 0)
+						menuItem -l "Visability : Off" -c ("layerVis " + $each) ($each + "PopupVisability");
+					
+					if ($vis == 1)
+						menuItem -l "Visability : On" -c ("layerVis " + $each) ($each + "PopupVisability");
+					
+					menuItem -edit -rb 1 ($each + "Popup" + $state); 
+			setParent..;
+		separator ; 
+	}
+		setParent..;
+	setParent..;
+setParent..;
+setParent..;
+
+formLayout
+	-edit
+
+	-attachForm $channelColumn "left" 0
+	-attachForm $channelColumn "top" 0
+	-attachControl $channelColumn bottom 0 $channelControl
+	-attachForm $channelColumn "right" 0
+		
+	-attachForm $channelControl "left" 0
+	-attachForm $channelControl "top" 50
+	-attachForm $channelControl "bottom" 0
+	-attachForm $channelControl "right" 0
+
+	$channelForm;	
+	
+		setParent..;
+	setParent..;	
+setParent..;
+
+string $resizeControl = `gridLayout -nc 2 -cwh (($masterControl/2)-2) 18 resizeMaskAttr`;
+	symbolButton
+		-i($imagepath + "resizeBigger.bmp")
+		-w (($masterControl/2)-2)
+		-h 18
+		-c ("maskSize 0 " 
+			+ " " + $modPane 
+			+ " " + $controlMask 				
+			+ " " + $minButts
+			+ " " + $timeControl
+			+ " " + $graphControl
+			+ " " + $helpControl
+			+ " " + $facialForm
+		)
+		maskBigger
+		;	
+	
+	symbolButton
+		-i($imagepath + "resizeSmaller.bmp")
+		-w (($masterControl/2)-2)
+		-h 18
+		 -c ("maskSize 1 " 
+				+ " " + $modPane 
+				+ " " + $controlMask 				
+				+ " " + $minButts
+				+ " " + $timeControl
+				+ " " + $graphControl
+				+ " " + $helpControl
+				+ " " + $facialForm
+			)
+			maskSmaller
+			;
+	
+setParent..;
+				
+formLayout
+	-edit
+
+	-attachForm $modPane "top" 0
+	-attachForm $modPane "left" 0
+	-attachForm $modPane "right" ($masterControl + 138)
+	-attachControl $modPane bottom 5 $timeControl
+
+	-attachForm $controlMask "top" 111
+	-attachControl $controlMask left 2 $modPane
+	-attachForm $controlMask "right" $masterControl
+	-attachControl $controlMask bottom 5 $timeControl
+						
+	-attachForm $minButts "top" 0
+	-attachControl $minButts left 2 $modPane
+	-attachForm $minButts "right" $masterControl 
+	-attachControl $minButts bottom 2 $controlMask
+			
+	-attachForm $charColumn "right" 0
+	-attachForm $charColumn "top" 0
+	-attachControl $charColumn left 2 $controlMask
+	-attachForm $charColumn "bottom" 40
+			
+	-attachForm $resizeControl "right" 0
+	-attachControl $resizeControl top 0 $charColumn
+	-attachControl $resizeControl left 2 $controlMask
+	-attachForm $resizeControl "bottom" 22
+				
+	-attachForm $timeControl "left" 0
+	-attachForm $timeControl "top" 320
+	-attachControl $timeControl bottom 2 $graphControl
+	-attachForm $timeControl "right" $masterControl
+
+	-attachForm $graphControl "left" 0
+	-attachForm $graphControl "top" 415
+	-attachForm $graphControl "bottom" 44
+	-attachForm $graphControl "right" $masterControl 
+			
+	-attachForm $helpControl "left" 0
+	-attachControl $helpControl top 1 $graphControl
+	-attachForm $helpControl "bottom" 22
+	-attachForm $helpControl "right" $masterControl 
+			
+	-attachControl $comandMask left 0 $inOutControl
+	-attachControl $comandMask top 0 $resizeControl
+	-attachForm $comandMask "bottom" 0
+	-attachForm $comandMask "right" 12
+			
+	-attachForm $inOutControl "left" 0
+	-attachControl $inOutControl top 0 $resizeControl
+	-attachForm $inOutControl "bottom" 0
+	-attachForm $inOutControl "right" 0
+
+	$facialForm;
+
+//scriptJob
+scriptJob -ro 1 -uid "Masquerade" maskTimePanelDel;
+			
+maskDir;
+						
+//auto load library
+string $fileDir = `workspace -q -rd`+ "Masquerade/Poses/";
+$fileExists = `filetest -r ( $fileDir + $charName + "_poseLibrary.mel" )`;
+if ( $fileExists == 1 )
+	autoImportLibrary $charName;
+			
+playbackOptions -v "all";
+
+window -edit -wh $maskSizeW $maskSizeH -t ("Masquerade™ 1.0 Beta --- " + $charName) Masquerade;
+showWindow Masquerade;
+
+//load character to panel
+switchMaskPanel $charName;
+
+print ( $charName + " loaded\n");
+select -cl;	
+}
+
+global proc snapRotateCam(string $charName, int $degree)
+{
+string $rotateCam = `optionVar -q "rMaskCam"`;
+setAttr ($charName + "_MaskCamGroup.r" + $rotateCam) $degree;
+}
+
+global proc maskToShelf(string $charName)
+{
+setShelfVisible 1;
+global string $gShelfTopLevel;
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+shelfButton
+	-parent ($gShelfTopLevel + "|" + `tabLayout -q -st $gShelfTopLevel`)
+	-l ("Launch Masquerade with : " + $charName)
+	-ann ("Launch Masquerade with : " + $charName)
+	-i1 ($imagepath + "shelfMaskLaunch.bmp")
+	-iol $charName 
+	-c ("launchMaskFromShelf " + $charName)
+	;	
+}
+
+global proc maskSize (int $BS, string $modPane, string $controlMask, string $minButts, string $timeControl, string $graphControl, string $helpControl, string $form)
+{
+int $chanButtW = 30; 
+int $masterControl;
+int $sizeOrig = `optionVar -q "maskAttrControl"`;
+int $resizeBy = `optionVar -q "maskresizeBy"`;
+
+if ($BS == 0)
+	$masterControl = $sizeOrig+$resizeBy;
+
+if ($BS == 1)
+	$masterControl = $sizeOrig-$resizeBy;
+
+formLayout
+	-edit
+		
+	-attachForm $modPane "right" ($masterControl + 138)		
+	-attachForm $controlMask "right" $masterControl								
+	-attachForm $minButts "right" $masterControl 		
+	-attachForm $timeControl "right" $masterControl
+	-attachForm $graphControl "right" $masterControl 
+	-attachForm $helpControl "right" $masterControl 
+	
+	$form;
+gridLayout -edit -cw (($masterControl/2)-2) resizeMaskAttr;
+optionVar -intValue "maskAttrControl" $masterControl;
+}
+
+global proc maskSelImageChange()
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+if (`window -q -ex Masquerade`)
+	{
+		global string $gCharName;
+		string $UIname[];
+		string $curve[];
+		string $menuName[];
+		int $selCurve[];
+		
+		$UIname[0] = "Brow";
+		$UIname[1] = "Eye";
+		$UIname[2] = "Mouth";
+		
+		$curve[0] = $gCharName + "_LeftEyeBrowControl";
+		$curve[1] = $gCharName + "_LeftEyeControl";
+		$curve[2] = $gCharName + "_MouthControl";	
+		
+		$menuName[0] = "Eye Brow";
+		$menuName[1] = "Eye";
+		$menuName[2] = "Mouth";
+		
+		$selCurve[0] = 0;
+		$selCurve[1] = 0;
+		$selCurve[2] = 0;
+			
+		for ($c=0; $c<3; $c++) 
+			{
+				picture -edit -i ($imagepath + "selectMask" + $UIname[$c] + ".bmp") ("select" + $UIname[$c]);
+					popupMenu -e -dai ("menu" + $UIname[$c]);
+						menuItem -p ("menu" + $UIname[$c]) -l ("Select " + $menuName[$c]) -c ("select -r " + $curve[$c]);
+			}
+
+		string $sel[] = `ls -sl`;
+		int $sizeSel = `size($sel)`;
+		
+		if ($sizeSel == 0)
+			{
+				for ($c=0; $c<3; $c++) 
+					{
+						picture -edit -i ($imagepath + "selectMask" + $UIname[$c] + ".bmp") ("select" + $UIname[$c]);
+							popupMenu -e -dai ("menu" + $UIname[$c]);
+								menuItem -p ("menu" + $UIname[$c]) -l ("Select " + $menuName[$c]) -c ("select -r " + $curve[$c]);
+					}
+			}
+		
+		if ($sizeSel > 0)
+			{	
+				for ($each in $sel)
+					{
+						if ($each == $curve[0])
+							$selCurve[0] = 1;
+						
+						if ($each == $curve[1])
+							$selCurve[1] = 1;
+						
+						if ($each == $curve[2])
+							$selCurve[2] = 1;
+					}
+					
+				for ($c=0; $c<3; $c++)
+					{	
+						if($selCurve[$c] == 1)
+							{		
+								picture -edit -i ($imagepath + "selectMask" + $UIname[$c] + "Sel.bmp") ("select" + $UIname[$c]);
+								popupMenu -e -dai ("menu" + $UIname[$c]);
+									menuItem -p ("menu" + $UIname[$c]) -l ("Deselect " + $menuName[$c]) -c ("select -d " + $curve[$c]);
+							}
+						else
+							{
+								popupMenu -e -dai ("menu" + $UIname[$c]);
+								menuItem -p ("menu" + $UIname[$c]) -l ("Select " + $menuName[$c]) -c ("select -r " + $curve[$c]);
+								menuItem -p ("menu" + $UIname[$c]) -l ("Add " + $menuName[$c]) -c ("select -add " + $curve[$c]);
+							}
+					}
+			}
+	}
+updateMaskMenu;
+}
+
+//edit time
+global proc maskPlayButtonBackward() 
+{
+global string $gPlayBackSlider;
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+int $isOscillate = (`playbackOptions -q -loop` == "oscillate");
+int $timeButtWH = `symbolButton -q -h playB`;
+
+if(( `play -query -state` == 1 )&&(( `play -query -forward` == 0 ) || $isOscillate ))
+	{
+		play -state 0;
+	}
+	
+else 
+	{
+		float $by = `playbackOptions -query -by`;	
+		if( `currentTime -q` - $by < `playbackOptions -q -min` ) 
+			currentTime -e `playbackOptions -q -max`;
+	
+		symbolButton -edit -h $timeButtWH -w $timeButtWH -i ($imagepath + "timePlay.bmp") playF; 
+		symbolButton -edit -h $timeButtWH -w $timeButtWH -i ($imagepath + "timeStop.bmp") playB;
+		floatField -edit -en 0 curentFrame; 
+		
+		play -forward 0;
+	}
+}
+
+global proc maskPlayButtonForward() 
+{
+global string $gPlayBackSlider;
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+int $isOscillate = (`playbackOptions -q -loop` == "oscillate");
+int $timeButtWH = `symbolButton -q -h playB`;
+string $sound = `timeControl -q -s $gPlayBackSlider`;
+string $check;
+string $checkStop[];
+
+if(( `play -query -state` == 1 )&&(( `play -query -forward` == 1 ) || $isOscillate ))
+	{
+		play -state 0;
+	}
+	
+else 
+	{
+		float $by = `playbackOptions -query -by`;	
+		if( `currentTime -q` + $by > `playbackOptions -q -max` ) 
+			currentTime -e `playbackOptions -q -min`;
+
+			symbolButton -edit -h $timeButtWH -w $timeButtWH -i ($imagepath + "timeBackward.bmp") playB; 
+			symbolButton -edit -h $timeButtWH -w $timeButtWH -i ($imagepath + "timeStop.bmp") playF; 
+			floatField -edit -en 0 curentFrame;
+
+			play -forward 1 -sound $sound;
+	}
+}
+
+global proc speedChange()
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+float $currentSpeed = `channelBox -q -spd maskKeyChannelBoxPanel`;
+float $speed;
+
+switch ($currentSpeed)
+	{
+		case 0.1:
+			$speed = 0.5;		
+			break;
+			
+		case 0.5:
+			$speed = 1.0;		
+			break;
+			
+		case 1.0:
+			$speed = 3.5;		
+			break;
+			
+		case 3.5:
+			$speed = 0.1;		
+			break;
+	}	
+	
+if (`window -q -ex Masquerade`)
+	{
+		symbolButton -edit -i ($imagepath + "speed" + $speed + ".bmp") changeSpeedButt;
+		channelBox -edit -spd $speed maskKeyChannelBox;
+	}
+
+symbolButton -edit -i ($imagepath + "speed" + $speed + ".bmp") changeSpeedButtPanel;
+channelBox -edit -spd $speed maskKeyChannelBoxPanel;
+	
+optionVar -floatValue "maskSpeed" $speed;	
+}
+
+global proc toggleMaskMinip ()
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+string $minipState = `channelBox -q -mnp maskKeyChannelBoxPanel`;
+string $state;
+
+switch ($minipState)
+	{
+		case "standard":
+			$state = "none";	
+			break;
+			
+		case "none":
+			$state = "invisible";			
+			break;
+			
+		case "invisible":
+			$state = "standard";					
+			break;
+	}
+
+if (`window -q -ex Masquerade`)
+	{	
+		symbolButton -edit -i ($imagepath + "selectTool" + $state + ".bmp") maskMinip;
+		channelBox -edit -mnp $state maskKeyChannelBox;
+	}
+
+symbolButton -edit -i ($imagepath + "selectTool" + $state + ".bmp") maskMinipPanel;
+channelBox -edit -mnp $state maskKeyChannelBoxPanel;
+
+optionVar -stringValue "maskMinip" $state;		
+}
+
+global proc channelBoxHyper (int $state)
+{ 
+if (`window -q -ex Masquerade`)
+	{
+		symbolCheckBox -edit -v $state changeHyperButt;
+		channelBox -edit -hyp $state maskKeyChannelBox;
+	}
+
+symbolCheckBox -edit -v $state changeHyperButtPanel;
+channelBox -edit -hyp $state maskKeyChannelBoxPanel;
+
+optionVar -intValue "maskHyper" $state;
+}
+
+global proc setCurrentTime()
+{
+float $newTime = `floatField -q -v curentFrame`;
+currentTime $newTime;
+}
+
+global proc updateMaskTimeIcons()
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+if (`window -q -ex Masquerade`)
+	{
+		int $timeButtWH = `symbolButton -q -h playB`;
+		float $currentTime = `currentTime -q`;
+		
+		symbolButton -edit -h $timeButtWH -w $timeButtWH -i ($imagepath + "timePlay.bmp") playF; 
+		symbolButton -edit -h $timeButtWH -w $timeButtWH -i ($imagepath + "timeBackward.bmp") playB;
+		floatField -edit -en 1 -v $currentTime curentFrame;
+	}	
+}
+	   
+global proc maskTimeLoop()
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+string $loop = `playbackOptions -q -l`;	
+string $loopState;
+
+switch ($loop)
+	{
+		case "once":
+			$loopState = "oscillate";
+			break;
+			
+		case "oscillate":
+			$loopState = "continuous";
+			break;	
+				
+		case "continuous":
+			$loopState = "once";
+			break;		
+	}
+
+playbackOptions -l $loopState;
+			
+symbolButton  
+	-edit 
+	-w 26
+	-h 26
+	-i ($imagepath + "loop_" + $loopState + ".bmp") 
+	maskLoop;
+
+menuItem -edit -rb 1 ($loopState + "Mask");
+menuItem -edit -rb 1 ($loopState + "Time");
+menuItem -edit -rb 1 ($loopState + "Panel");
+}
+
+global proc changeLoop(string $loop)
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+playbackOptions -l $loop;
+
+if(`window -q -ex Masquerade`)
+	{
+		menuItem -edit -rb 1 ($loop + "Mask");
+		menuItem -edit -rb 1 ($loop + "Time");
+		symbolButton  
+			-edit 
+			-w 26
+			-h 26
+			-i($imagepath + "loop_" + $loop + ".bmp") 
+		maskLoop;
+	}
+menuItem -edit -rb 1 ($loop + "Panel");
+}
+
+global proc maskMinPlay()
+{
+float $value = `floatField -q -v maskMinPlay`;	
+playbackOptions -ast $value;
+}
+
+global proc maskMinTime()
+{
+float $value = `floatField -q -v maskMinTime`;	
+playbackOptions -min $value;
+}
+
+global proc maskMaxTime()
+{
+float $value = `floatField -q -v maskMaxTime`;	
+playbackOptions -max $value;
+}
+
+global proc maskMaxPlay()
+{
+float $value = `floatField -q -v maskMaxPlay`;	
+playbackOptions -aet $value;
+}
+
+global proc maskRangeAn()
+{
+if (`window -q -ex Masquerade`)
+	{
+		float $min = `playbackOptions -q -min`;	
+		float $max = `playbackOptions -q -max`;
+		
+		floatField -edit -v $min maskMinTime;
+		floatField -edit -v $max maskMaxTime;
+	}
+}
+
+global proc maskRangeTm()
+{
+if (`window -q -ex Masquerade`)
+	{
+		float $min = `playbackOptions -q -ast`;	
+		float $max = `playbackOptions -q -aet`;
+		
+		floatField -edit -v $min maskMinPlay;
+		floatField -edit -v $max maskMaxPlay;
+	}
+}
+
+global proc maskTimeChange()
+{
+string $timeFPS = `currentUnit -q -t`;
+
+if(`window -exists Masquerade`)
+	{
+		menuItem -edit -rb 1 ($timeFPS + "Mask");	
+		menuItem -edit -rb 1 ($timeFPS + "MaskTime");
+	}
+	
+if (`scriptedPanel -q -ex maskPanel`)
+	menuItem -edit -rb 1 ($timeFPS + "Panel");
+}
+
+//stepKey
+global proc keyButtonChange()
+{
+global string $gCharName;
+int $sizeGlobalChar = `size($gCharName)`;
+
+if ($sizeGlobalChar > 0)
+	{
+		string $curve[];
+		string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+		
+		$curve[0] = $gCharName + "_LeftEyeBrowControl";
+		$curve[1] = $gCharName + "_LeftEyeControl";
+		$curve[2] = $gCharName + "_MouthControl";
+		
+		for ($eachCurve in $curve)
+			{
+				string $attr[] = `listAttr -k $eachCurve`;
+				for ($eachAttr in $attr)
+					{ 
+						float $keys[] = `keyframe -q -tc ($eachCurve + "." + $eachAttr)`;
+						int $numKeys = `size($keys)`;
+						float $time = `currentTime -q`;
+						
+						if ($numKeys == 0)
+							{
+								if(`window -q -ex Masquerade`)
+									{
+										iconTextButton -edit -en 0 ("backKey" + $eachAttr);
+										iconTextCheckBox -edit -i1 ($imagepath + "stepKeyOff.bmp") -v 0 ("stepKey" + $eachAttr);
+										iconTextButton -edit -en 0 ("advanceKey" + $eachAttr);
+									}
+								
+								if (`scriptedPanel -q -ex maskPanel`)
+									{
+										iconTextButton -edit -en 0 ("backKeyPanel" + $eachAttr);
+										iconTextCheckBox -edit -i1 ($imagepath + "stepKeyOff.bmp") -v 0 ("stepKey" + $eachAttr + "Panel");
+										iconTextButton -edit -en 0 ("advanceKeyPanel" + $eachAttr);
+									}								
+							}
+						
+						if ($numKeys>0)
+							{
+								if(`window -q -ex Masquerade`)
+									{
+										iconTextButton -edit -en 1 ("backKey" + $eachAttr);
+										iconTextButton -edit -en 1 ("advanceKey" + $eachAttr);
+									}
+									
+								if (`scriptedPanel -q -ex maskPanel`)
+									{
+										iconTextButton -edit -en 1 ("backKeyPanel" + $eachAttr);												
+										iconTextButton -edit -en 1 ("advanceKeyPanel" + $eachAttr);
+									}	
+																				
+							for ($each in $keys)
+								if ($time==$each)
+									{
+										if(`window -q -ex Masquerade`)
+											iconTextCheckBox -edit -i1 ($imagepath + "stepKeyOn.bmp") -v 1 ("stepKey" + $eachAttr);
+																				
+										if (`scriptedPanel -q -ex maskPanel`)											
+											iconTextCheckBox -edit -i1 ($imagepath + "stepKeyOn.bmp") -v 1 ("stepKey" + $eachAttr + "Panel");										
+										break;
+									}
+									
+								else 
+									{
+										if(`window -q -ex Masquerade`)
+											iconTextCheckBox -edit -i1 ($imagepath + "stepKeyOff.bmp") -v 0 ("stepKey" + $eachAttr);
+										
+										if (`scriptedPanel -q -ex maskPanel`)
+											iconTextCheckBox -edit -i1 ($imagepath + "stepKeyOff.bmp") -v 0 ("stepKey" + $eachAttr + "Panel");
+									}
+							}
+					}
+			}
+	}
+}
+
+global proc advanceKey(string $attr)
+{
+float $time = `currentTime -q`;
+float $end = `playbackOptions -q -max`;
+float $keys[] = `keyframe -time ($time + ":" + $end) -q -tc $attr`;
+int $numKeys = `size($keys)`;
+
+if ($numKeys == 0)
+	error ($attr + " has no keys");
+
+if ($numKeys == 1)
+	{
+		float $lastKey[] = `keyframe -q -tc $attr`;
+			currentTime $lastKey[0];
+	}
+	
+else
+	{
+		if ($time==$keys[0])
+			currentTime $keys[1];
+		
+		else
+			currentTime $keys[0];
+	}
+}
+
+global proc backKey(string $attr)
+{
+float $time = `currentTime -q`;
+float $start = `playbackOptions -q -min`;
+float $keys[] = `keyframe -time ($start + ":" + $time) -q -tc $attr`;
+int $numKeys = `size($keys)`;
+
+if ($numKeys == 0)
+	error ($attr + " has no keys");
+
+if ($numKeys == 1)
+	{
+		float $lastKey[] = `keyframe -q -tc $attr`;
+		int $numAllKeys = `size($lastKey)`;
+			currentTime $lastKey[$numAllKeys-1];
+	}
+	
+else
+	{
+		if ($time==$keys[$numKeys-1])
+			currentTime $keys[$numKeys-2];
+				
+		else
+			currentTime $keys[$numKeys-1];
+	}
+}
+
+global proc setKeyStep (string $curve, string $attr)
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+float $currentTime = `currentTime -q`;
+
+setKeyframe ($curve + "." + $attr);
+
+if (`window -q -ex Masquerade`)
+	iconTextCheckBox -edit -v 1 -i1 ($imagepath + "stepKeyOn.bmp") ("stepKey" + $attr);
+
+iconTextCheckBox -edit -v 1 -i1 ($imagepath + "stepKeyOn.bmp") ("stepKey" + $attr + "Panel");
+
+keyButtonChange;
+}
+
+global proc removeKeyStep (string $curve, string $attr)
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+float $currentTime = `currentTime -q`;
+
+cutKey -cl -t $currentTime ($curve + "." + $attr);
+
+if (`window -q -ex Masquerade`)
+	iconTextCheckBox -edit -v 0 -i1 ($imagepath + "stepKeyOff.bmp") ("stepKey" + $attr);
+
+iconTextCheckBox -edit -v 0 -i1 ($imagepath + "stepKeyOff.bmp") ("stepKey" + $attr + "Panel");
+
+keyButtonChange;
+}
+
+//time editors
+global proc maskTimeEditor(int $v)
+{
+maskTimePanelDel;	
+
+if($v<3)
+	paneLayout -edit -cn "single" maskAnimationEditors;
+
+if($v>=3)
+	paneLayout -edit -cn "horizontal2" maskAnimationEditors;
+
+switch ($v)
+	{
+		case 0:
+			scriptedPanel -p maskAnimationEditors -l "Mask_GraphEditor" -typ graphEditor maskGraphEditor;
+		break;
+			
+		case 1:
+			scriptedPanel -p maskAnimationEditors -l "Mask_TraxEditor" -typ clipEditorPanel maskTraxEditor;
+		break;
+		
+		case 2:
+			scriptedPanel -p maskAnimationEditors -l "Mask_DopeSheet" -typ dopeSheetPanel maskDopeSheet;
+		break;
+		
+		case 3:
+			{
+				scriptedPanel -p maskAnimationEditors -l "Mask_TraxEditor" -typ clipEditorPanel maskTraxEditor;
+				scriptedPanel -p maskAnimationEditors -l "Mask_GraphEditor" -typ graphEditor maskGraphEditor;
+			}
+		break;
+			
+		case 4:
+			{
+				scriptedPanel -p maskAnimationEditors -l "Mask_DopeSheet" -typ dopeSheetPanel maskDopeSheet;
+				scriptedPanel -p maskAnimationEditors -l "Mask_GraphEditor" -typ graphEditor maskGraphEditor;
+			}
+		break;
+		
+		case 5:
+			{
+				scriptedPanel -p maskAnimationEditors -l "Mask_TraxEditor" -typ clipEditorPanel maskTraxEditor;
+				scriptedPanel -p maskAnimationEditors -l "Mask_DopeSheet" -typ dopeSheetPanel maskDopeSheet;
+			}
+		break;
+	}
+	
+menuItem -edit -rb 1 ("timeEditor" + $v);	
+optionVar -stringValue "timeEditorMask" $v;
+}
+
+global proc maskTimePanelDel()
+{
+string $dopeSheet = `getPanel -withLabel "Mask_DopeSheet"`;
+string $graphEditor = `getPanel -withLabel "Mask_GraphEditor"`;
+string $traxEditor = `getPanel -withLabel "Mask_TraxEditor"`;
+
+if (`scriptedPanel -q -ex $dopeSheet`)
+	deleteUI -pnl $dopeSheet;
+if (`scriptedPanel -q -ex $graphEditor`)
+	deleteUI -pnl $graphEditor;
+if (`scriptedPanel -q -ex $traxEditor`)
+	deleteUI -pnl $traxEditor;
+
+if (`scriptedPanel -q -ex maskDopeSheet`)
+	deleteUI -pnl maskDopeSheet;
+if (`scriptedPanel -q -ex maskGraphEditor`)
+	deleteUI -pnl maskGraphEditor;
+if (`scriptedPanel -q -ex maskTraxEditor`)
+	deleteUI -pnl maskTraxEditor;	
+}
+
+global proc maskTimePanelDelJob()
+{
+if(`window -q -ex Masquerade`)
+	deleteUI Masquerade;
+
+string $dopeSheet = `getPanel -withLabel "Mask_DopeSheet"`;
+string $graphEditor = `getPanel -withLabel "Mask_GraphEditor"`;
+string $traxEditor = `getPanel -withLabel "Mask_TraxEditor"`;
+
+if (`scriptedPanel -q -ex $dopeSheet`)
+	deleteUI -pnl $dopeSheet;
+if (`scriptedPanel -q -ex $graphEditor`)
+	deleteUI -pnl $graphEditor;
+if (`scriptedPanel -q -ex $traxEditor`)
+	deleteUI -pnl $traxEditor;
+
+if (`scriptedPanel -q -ex maskDopeSheet`)
+	deleteUI -pnl maskDopeSheet;
+if (`scriptedPanel -q -ex maskGraphEditor`)
+	deleteUI -pnl maskGraphEditor;
+if (`scriptedPanel -q -ex maskTraxEditor`)
+	deleteUI -pnl maskTraxEditor;	
+}
+
+global proc maskPanelCheck()
+{
+string $maskPanel = `getPanel -withLabel "Masquerade"`;
+
+if (`scriptedPanel -q -ex $maskPanel`)
+	{
+		deleteUI $maskPanel;
+		print " ";
+	}
+
+if (`scriptedPanel -q -ex maskPanel`)
+	{
+		deleteUI maskPanel;
+		print " ";
+	}
+}
+
+//mask view
+global proc splitMaskView(string $cam)
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+paneLayout -edit -configuration "vertical2" -paneSize 1 65 100 maskFacePanel;
+
+modelEditor
+	-edit
+	-displayAppearance smoothShaded -dtx 1
+	-allObjects 1
+	-grid 0
+	-camera $cam
+	maskSplitPanel;
+
+menuItem -edit -rb 1 maskpersp;
+iconTextButton -edit -i1 ($imagepath + "camSingleView.bmp") -c "singleMaskView" -ann "Face Camera" switchCamImage;	
+}
+
+global proc singleMaskView()
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+paneLayout -edit -configuration "single" maskFacePanel;	
+iconTextButton -edit -i1 ($imagepath + "camSplitView.bmp") -c "splitMaskView persp" -ann "Face Camera/Persp" switchCamImage;
+}
+
+global proc setMaskSize()
+{
+int $maskSize[] = `window -q -wh Masquerade`;
+
+optionVar -intValue "maskSizeW" $maskSize[0];
+optionVar -intValue "maskSizeH" $maskSize[1];
+
+print ("Masquerade window size set\tW: " + $maskSize[0] + " H: " + $maskSize[1] + "\n"); 
+}
+
+global proc reSetMaskSize(string $charName)
+{
+optionVar -intValue "maskSizeW" 766;
+optionVar -intValue "maskSizeH" 489;
+
+window -edit -wh 766 489 Masquerade;
+
+print "Masquerade window reset to defult value\n"; 
+}
+			
+//menu check boxes
+global proc timeCodeCheck()
+{
+int $state = `menuItem -query -cb timeCodeCheck`;
+
+animDisplay -e -tc $state;
+menuItem -edit -cb $state timeCodeCheckPanel;
+menuItem -edit -cb $state timeCodeCheckTime;
+}
+
+global proc timeCodeCheckTime()
+{
+int $state = `menuItem -query -cb timeCodeCheckTime`;
+
+animDisplay -e -tc $state;
+menuItem -edit -cb $state timeCodeCheck;
+menuItem -edit -cb $state timeCodeCheckPanel;
+}
+
+global proc timeCodeCheckPanel()
+{
+int $state = `menuItem -query -cb timeCodeCheckPanel`;
+
+animDisplay -e -tc $state;
+menuItem -edit -cb $state timeCodeCheck;
+menuItem -edit -cb $state timeCodeCheckTime;
+}
+
+global proc wireframeShaded()
+{
+int $state = `menuItem -query -cb wireframeShaded`;
+
+modelEditor -e -wos $state maskFaceCam;
+}
+
+global proc isolateMaskCheck()
+{
+int $state = `menuItem -query -cb isolateMaskCheck`;
+
+isolateSelect -state $state maskFaceCam;
+}
+
+global proc autoSavePoseLM(string $charName)
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+int $state = `menuItem -query -cb autoSavePoseLM`;
+
+if ($state == 0)
+	{
+		iconTextCheckBox -edit -ann "auto save pose library : Off"  -v 0 -i1 ($imagepath + "autoPoseOff.bmp") autoSavePose;
+		menuItem -edit -ann "auto save pose library : OFF" autoSavePoseLM;
+		optionVar -intValue "autoSaveMaskPose" 0;
+	}
+	
+if ($state == 1)
+	{
+		iconTextCheckBox -edit -ann "auto save pose library : ON"  -v 1 -i1 ($imagepath + "autoPoseOn.bmp") autoSavePose;
+		menuItem -edit -ann "auto save pose library : ON" autoSavePoseLM;
+		optionVar -intValue "autoSaveMaskPose" 1;
+		savePoseButtons $charName;
+	}
+}
+
+global proc showWindowChangeOption()
+{
+int $state = `menuItem -q -cb showPoseAttrWinToggle`;
+
+optionVar -intValue "showPoseWin" $state;
+}
+
+//channel popup
+global proc MKeySelect()
+{
+string $origSel[] = `ls -sl`;
+string $sel[] = `channelBox -q -mol maskKeyChannelBox`;
+string $attr[] = `channelBox -q -sma maskKeyChannelBox`;
+
+for ($each in $attr)
+	setKeyframe ($sel[0] + "." + $each);
+
+select -r $origSel;
+}
+
+global proc MKeyAll()
+{
+string $origSel[] = `ls -sl`;
+string $sel[] = `channelBox -q -mol maskKeyChannelBox`;
+
+for ($all in $sel)
+	{
+		string $attr[] = `listAttr -k $all`;
+			for ($each in $attr)
+			setKeyframe ($all + "." + $each);
+	}
+	
+select -r $origSel;
+}
+
+global proc breakMKeyConnection()
+{
+string $origSel[] = `ls -sl`;
+string $sel[] = `channelBox -q -mol maskKeyChannelBox`;
+string $attr[] = `channelBox -q -sma maskKeyChannelBox`;
+
+for ($each in $attr)
+	cutKey -cl ($sel[0] + "." + $each);
+
+select -r $origSel;
+}
+
+global proc MKeySelectPanel()
+{
+string $origSel[] = `ls -sl`;
+string $sel[] = `channelBox -q -mol maskKeyChannelBoxPanel`;
+string $attr[] = `channelBox -q -sma maskKeyChannelBoxPanel`;
+
+for ($each in $attr)
+	setKeyframe ($sel[0] + "." + $each);
+
+select -r $origSel;
+}
+
+global proc MKeyAllPanel()
+{
+string $origSel[] = `ls -sl`;
+string $sel[] = `channelBox -q -mol maskKeyChannelBoxPanel`;
+
+for ($all in $sel)
+	{
+		string $attr[] = `listAttr -k $all`;
+			for ($each in $attr)
+			setKeyframe ($all + "." + $each);
+	}
+	
+select -r $origSel;
+}
+
+global proc breakMKeyConnectionPanel()
+{
+string $origSel[] = `ls -sl`;
+string $sel[] = `channelBox -q -mol maskKeyChannelBoxPanel`;
+string $attr[] = `channelBox -q -sma maskKeyChannelBoxPanel`;
+
+for ($each in $attr)
+	cutKey -cl ($sel[0] + "." + $each);
+
+select -r $origSel;
+}
+
+//layers
+global proc layerVis(string $layerName)
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+int $vis = `getAttr ($layerName + ".visibility")`;
+
+if ($vis == 0) 
+	{
+		setAttr ($layerName + ".visibility") 1;
+		iconTextButton -edit -i1 ($imagepath + "visDownMSK.bmp") ($layerName + "MSKvisPanel");
+		if (`iconTextButton -q -ex ($layerName + "MSKvis")`)
+			iconTextButton -edit -i1 ($imagepath + "visDownMSK.bmp") ($layerName + "MSKvis");
+		if (`window -q -ex "Masquerade"`)
+			menuItem -edit -l "Visability : On" ($layerName + "PopupVisability");
+		menuItem -edit -l "Visability : On" ($layerName + "PopupVisabilityPanel");
+	}
+	
+if ($vis == 1)
+	{ 
+		setAttr ($layerName + ".visibility") 0;
+		iconTextButton -edit -i1 ($imagepath + "visUpMSK.bmp") ($layerName + "MSKvisPanel");
+		if (`iconTextButton -q -ex ($layerName + "MSKvis")`)
+			iconTextButton -edit -i1 ($imagepath + "visUpMSK.bmp") ($layerName + "MSKvis");
+		if (`window -q -ex "Masquerade"`)
+			menuItem -edit -l "Visability : Off" ($layerName + "PopupVisability");
+		menuItem -edit -l "Visability : Off" ($layerName + "PopupVisabilityPanel");
+	}
+}
+
+global proc layerState(string $layerName)
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+string $state = `layerButton -q -ls $layerName`;
+string $style;
+int $value;
+
+switch ($state)
+	{
+		case "normal":
+			{
+				$value = 1;
+				$style = "template";
+			}
+			break;
+		
+		case "template":
+			{
+				$value = 2;
+				$style = "reference";				
+			}
+			break;
+		
+		case "reference":
+			{
+				$value = 0;
+				$style = "normal";				
+			}
+			break;
+	}
+	
+setAttr ($layerName + ".dt") $value;
+
+iconTextButton -edit -i1 ($imagepath + $style + "MSK.bmp")($layerName + "MSKstatePanel");
+if (`iconTextButton -q -ex ($layerName + "MSKstate")`)
+	iconTextButton -edit -i1 ($imagepath + $style + "MSK.bmp")($layerName + "MSKstate");
+
+menuItem -edit -rb 1 ($layerName + "Popup" + $style + "Panel");
+if (`menuItem -q -ex ($layerName + "Popup" + $style)`)
+	menuItem -edit -rb 1 ($layerName + "Popup" + $style);
+
+}
+
+global proc menuSetLayer(string $layerName, string $state, int $value)
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+if (`menuItem -q -ex ($layerName + "Popup" + $state + "Panel")`)
+	menuItem -edit -rb 1 ($layerName + "Popup" + $state + "Panel");
+
+if (`menuItem -q -ex ($layerName + "Popup" + $state)`)
+	menuItem -edit -rb 1 ($layerName + "Popup" + $state);
+
+setAttr ($layerName + ".dt") $value;
+
+if (`iconTextButton -q -ex ($layerName + "MSKstatePanel")`)
+	iconTextButton -edit -i1 ($imagepath + $state + "MSK.bmp")($layerName + "MSKstatePanel");
+
+if (`iconTextButton -q -ex ($layerName + "MSKstate")`)
+	iconTextButton -edit -i1 ($imagepath + $state + "MSK.bmp")($layerName + "MSKstate");	
+}
+
+global proc maskPanel()
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+global string $gMainPane;
+
+//script jobs
+scriptJob -killWithScene -e "playbackRangeChanged" "maskRangeAn";
+scriptJob -killWithScene -e "playbackRangeSliderChanged" "maskRangeTm";
+scriptJob -killWithScene -e "timeUnitChanged" "maskTimeChange";
+scriptJob -killWithScene -e "timeChanged" "updateMaskTimeIcons;keyButtonChange";
+scriptJob -killWithScene -e "SelectionChanged" "maskSelImageChange";
+
+if (!`scriptedPanelType -q -exists MasqueradePanel`) 
+		scriptedPanelType
+			-createCallback "mskCreatePanel" 
+			-addCallback    "mskAddPanel" 
+			-removeCallback "mskRemovePanel"
+			-deleteCallback "mskDeletePanel"
+			-unique 1
+			MasqueradePanel
+			;
+
+if (`panelConfiguration -q -ex Masquerade`)
+	deleteUI -pc Masquerade;
+
+panelConfiguration -l "Masquerade"
+	-defaultImage ($imagepath + "maskPersp.bmp")
+	-i ($imagepath + "maskPersp.bmp")
+	-sc 1
+	-configString "global string $gMainPane; paneLayout -e -cn \"vertical2\" -ps 1 33 100 -ps 2 67 100 $gMainPane;"
+	-ap 0
+		"Masquerade"
+		"scriptedPanel"
+		("{global int $gUseMenusInPanels;\$panelName = `scriptedPanel -mbv $gUseMenusInPanels -unParent -type \"MasqueradePanel\" -l \"Masquerade\"`;\scriptedPanel -e  $panelName;}")
+		"scriptedPanel -edit -l \"Masquerade\" -mbv true  $panelName"
+	-ap 1
+		"Persp View"
+		"modelPanel"
+		("{global int $gUseMenusInPanels;\modelPanel -mbv $gUseMenusInPanels\ -unParent -l \"Persp View\" -cam persp;}" )
+		"modelPanel -edit -l \"Persp View\"  -cam \"persp\" $panelName" 
+		Masquerade
+		;
+
+if (`panelConfiguration -q -ex MasqueradePerspGraph`)
+	deleteUI -pc MasqueradePerspGraph;
+
+panelConfiguration -l "Masquerade/Persp/Graph Editor"
+	-defaultImage ($imagepath + "maskPerspGraph.bmp")
+	-i ($imagepath + "maskPerspGraph.bmp")
+	-sc 1
+	-configString "global string $gMainPane; paneLayout -e -cn \"right3\" -ps 1 33 100 -ps 2 67 64 -ps 3 67 36 $gMainPane;"
+	-ap 1
+		"Masquerade"
+		"scriptedPanel"
+		("{global int $gUseMenusInPanels;\$panelName = `scriptedPanel -mbv $gUseMenusInPanels -unParent -type \"MasqueradePanel\" -l \"Masquerade\"`;\scriptedPanel -e  $panelName;}")
+		"scriptedPanel -edit -l \"Masquerade\" -mbv true  $panelName"
+	-ap 1
+		"Persp View"
+		"modelPanel"
+		("{global int $gUseMenusInPanels;\modelPanel -mbv $gUseMenusInPanels\ -unParent -l \"Persp View\" -cam persp;}" )
+		"modelPanel -edit -l \"Persp View\"  -cam \"persp\" $panelName"
+	-ap 0
+		"Graph Editor"
+		"scriptedPanel"
+		("{global int $gUseMenusInPanels;\$panelName = `scriptedPanel -mbv $gUseMenusInPanels -unParent -type \"graphEditor\" -l \"Graph Editor\"`;\scriptedPanel -e  $panelName;}")
+		"scriptedPanel -edit -l \"Graph Editor\" -mbv true $panelName" 
+		MasqueradePerspGraph
+		;
+
+maskPanelCheck;
+		
+$maskPanel = `scriptedPanel -mbv 1 -parent $gMainPane -l "Masquerade" -typ "MasqueradePanel" maskPanel`;
+
+maskDir;
+}
+
+global proc mskCreatePanel(string $gMaskPanel)
+{
+}
+
+//panel
+global proc mskAddPanel( string $gMaskPanel)
+{
+string $tabName[];	
+string $colName[];
+string $scrlName[];
+
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+if (!`optionVar -exists "maskFrameHUB"`)
+optionVar -intValue "maskFrameHUB" 0;
+
+int $frameHUBvalue = `optionVar -q "maskFrameHUB"`;
+
+if (!`optionVar -exists "maskInfoHUB"`)
+optionVar -intValue "maskInfoHUB" 0;
+
+int $maskInfo = `optionVar -q "maskInfoHUB"`;
+
+if (!`optionVar -exists "maskMinip"`)
+optionVar -stringValue "maskMinip" "standard";
+
+string $maskMinip = `optionVar -q "maskMinip"`;
+
+if (!`optionVar -exists "maskSpeed"`)
+optionVar -floatValue "maskSpeed" 0.5;
+
+float $channelSpeed = `optionVar -q "maskSpeed"`;
+
+if (!`optionVar -exists "maskHyper"`)
+optionVar -intValue "maskHyper" 0;
+
+int $hyper = `optionVar -q "maskHyper"`;
+
+print "\n";
+
+//Masquerade panel menu
+menu 
+	-l "Masquerade" 
+	-aob 1 
+	-to 0
+	;
+menuItem 
+	-cb $maskInfo
+	-ann "Toggle the display of the Masquerade info"
+	-l "Masquerade Info HUD"
+	-c "maskInfoHUB Panel"
+	maskInfoHUBPanel
+	;
+menuItem 
+	-d 1
+	;
+menuItem
+   	-l "About Masquerade"
+	-ann "DIsplay information about Masquerade™"
+   	-c "aboutMask"
+	;
+menuItem
+	-l "Help"
+	-ann "Launch help for Masquerade"
+	-i ($imagepath + "maskHelp.bmp")
+	-c "showHelp -absolute \"http://www.keegan3d.com/Masquerade/Help.htm\";"
+	;
+
+//time panel menu
+menu 
+	-l "Time" 
+	-to 0
+	;
+menuItem 
+	-l "Sound Manager" 
+	-ann "Launches the sound manager window"
+	-c "soundManager"
+	;
+menuItem 
+	-l "Frame/Time Converter"
+	-ann "Convert frames to minuets:seconds.frames, or minuets:seconds.frames to frames"
+	-i ($imagepath + "soundManShelf.bmp") 
+	-c "maskTimeConverter;"
+	;
+menuItem 
+	-d 1
+	;
+menuItem
+	-sm 1
+    -l "Fps";
+	radioMenuItemCollection;
+		menuItem 
+			-l "game: 15 fps" 
+			-ann "Set frame rate to \"game: 15 fps\"" 
+			-c "currentUnit -t game"
+			-rb 0 
+			gamePanel
+			;
+		menuItem 
+			-l "film: 24 fps" 
+			-ann "Set frame rate to \"film: 24 fps\"" 
+			-c "currentUnit -t film"
+			-rb 0 
+			filmPanel
+			; 
+		menuItem 
+			-l "pal: 25 fps" 
+			-ann "Set frame rate to \"pal: 25 fps\""
+			-c "currentUnit -t pal"
+			-rb 0 
+			palPanel
+			; 
+		menuItem 
+			-l "ntsc: 30 fps" 
+			-ann "Set frame rate to \"ntsc: 30 fps\""
+			-c "currentUnit -t ntsc"
+			-rb 0 
+			ntscPanel
+			; 
+		menuItem 
+			-l "show: 48 fps" 
+			-ann "Set frame rate to \"show: 48 fps\""
+			-c "currentUnit -t show"
+			-rb 0 
+			showPanel
+			; 
+		menuItem 
+			-l "palf: 50 fps" 
+			-ann "Set frame rate to \"palf: 50 fps\""
+			-c "currentUnit -t palf"
+			-rb 0 
+			palfPanel
+			; 
+		menuItem 
+			-l "ntscf: 60 fps" 
+			-ann "Set frame rate to \"ntscf: 60 fps\""
+			-c "currentUnit -t ntscf"
+			-rb 0 
+			ntscfPanel
+			;
+	setParent -menu..;
+string $timeFPS = `currentUnit -q -t`;
+menuItem -edit -rb 1 ($timeFPS + "Panel");
+menuItem
+	-sm 1
+    -l "Looping"
+	;
+	radioMenuItemCollection;
+	menuItem
+	   	-l "Once"
+		-ann "Change play back looping to once"
+	   	-c "changeLoop once"
+		-rb 0
+		oncePanel
+		;
+	menuItem
+	    -l "Oscillate"
+		-ann "Change play back looping to oscillate"
+	    -c "changeLoop oscillate"
+		-rb 0
+		oscillatePanel
+		;
+	menuItem
+	    -l "Continuous"
+		-ann "Change play back looping to continuous"
+	    -c "changeLoop continuous"
+		-rb 0
+		continuousPanel
+		;
+	string $currentLoop = `playbackOptions -q -l`;
+	menuItem -edit -rb 1 ($currentLoop + "Panel");
+	setParent -menu..;
+menuItem 
+	-cb $frameHUBvalue
+	-l "Frame HUD"
+	-ann "Toggle the display of the current frame"
+	-c "frameCheckHUB Panel"
+	maskFrameCheckPanel
+	;
+int $timeCodeValue = `animDisplay -q -tc`;
+menuItem
+	-cb $timeCodeValue
+    -l "Time Code"
+	-ann "Toggle the dispay of a time code"
+	-c "timeCodeCheckPanel"
+	timeCodeCheckPanel
+	;
+menuItem 
+	-d 1
+	;
+menuItem
+    -l "Animation Preferences"
+	-ann "Open animation preferences"
+    -c "preferencesWnd \"timeline\""
+	;
+
+//character menu
+menu
+	-l "Character"
+	-to 0
+	;
+menuItem 
+	-l "Load Character" 
+	-ann "Load selected character into Masquerade Panel"
+	-c "charHunt 2"
+	;
+menuItem
+	-sm 1
+   	-l "Load With"
+	selectedMaskLauncherPanel;
+menuItem 
+	-d 1
+	;
+menuItem
+    -l "Update List"
+	-ann "Update the list to display all control masks in the scene"
+	-c "updateMaskMenu";
+setParent -m ..;
+menuItem 
+	-d 1
+	;
+menuItem
+	-l "Key All"
+	-ann "Key All" 
+	-c ( "keyMaskAllPanel")
+	;
+menuItem 
+	-l "Remove Keys"
+	-ann "Remove all key frames" 
+	-c ( "removeKeysAllPanel")
+	;
+menuItem 
+	-l "Reset"
+	-ann "Reset all sliders to defult value" 
+	-c ( "resetMaskAllPanel")
+	;
+menuItem
+	-d 1
+	;
+menuItem
+	-sm 1
+    -l "Attributes"
+	;
+menuItem
+    -l "Add Attribute"
+	-ann "Add attributes to selected object"
+    -c "AddAttribute"
+	;
+menuItem 
+    -l "Edit Attribute"
+	-ann "Edit the selected objects attributes"
+	-c "RenameAttribute;"
+	;
+setParent -menu..;
+menuItem 
+	-d 1
+	;
+menuItem 
+	-l "Launch Masquerade" 
+	-ann "launch character in Masquerade animation window"
+	-c "launchMaskFromPanel"
+	;
+
+//display
+menu
+	-l "Display"
+	-to 0 
+	-aob 0
+	;	
+menuItem
+    -l "Masquerade/Persp"
+	-ann "Change panel to \"Masquerade/Persp\""
+    -c "setNamedPanelLayout \"Masquerade\""
+	;
+menuItem
+    -l "Masquerade/Persp/Graph Editor"
+	-ann "Change panel to \"Masquerade/Persp/Graph Editor\""
+    -c "setNamedPanelLayout \"Masquerade/Persp/Graph Editor\""
+	;
+menuItem
+	-d 1
+	;
+menuItem
+    -l "Hide UI Elements"
+	-ann "Hide all UI elements"
+    -c "HideUIElements"
+	;
+menuItem
+   	-l "Show UI Elements"
+	-ann "Show all UI elements"
+   	-c "ShowUIElements"
+	;
+menuItem
+	-d 1
+	;
+menuItem
+    -l "Masquerade UI Set"
+	-ann "Hide all UI elements, except for time controles"
+	-c "maskUIset"
+	;
+
+$tabName[0] = "Eye Brows";
+$tabName[1] = "Eyes";
+$tabName[2] = "Mouth";;
+	
+$colName[0] = "eyeBrowColumn";
+$colName[1] = "eyeColumn";
+$colName[2] = "mouthColumn";
+
+$scrlName[0] = "eyebrowScrollPanel";
+$scrlName[1] = "eyeScrollPanel";
+$scrlName[2] = "mouthScrollPanel";
+
+$curve[0] = "LeftEyeBrow";
+$curve[1] = "LeftEye";
+$curve[2] = "Mouth";
+	
+//charTab
+int $colW = 42;
+paneLayout -configuration "single" charTabs;
+	tabLayout -imw 3 -imh 3 -h 300 attrTablay;
+
+for ($c=0; $c<3; $c++)
+	{			
+		string $attrForm = `formLayout -numberOfDivisions 100 $tabName[$c]`;
+		gridLayout -nc 4 -cwh $colW $colW;
+			iconTextButton 
+				-st "iconOnly"  
+				-i1 ($imagepath + "keyAll.bmp") 
+				-ann "Key All" 
+				-c ("setKeyPanel " + $curve[$c])
+				;
+			iconTextButton 
+				-st "iconOnly"  
+				-i1 ($imagepath + "removeKey.bmp") 
+				-ann "Remove all key frames" 
+				-c ("removeKeysPanel " + $curve[$c])
+				;
+			iconTextButton 
+				-st "iconOnly"  
+				-i1 ($imagepath + "zeroOut.bmp") 
+				-ann "Reset all sliders to defult value" 
+				-c ("resetPanel " + $curve[$c])
+				;
+			iconTextButton 
+				-st "iconOnly" 
+				-ann "Check attributes to be keyed" 
+				-i1($imagepath  + "checkKey.bmp") 
+				-c ("checkKeyPanel " + $curve[$c])
+				;
+		setParent..;
+		
+		string $attrScroll = `scrollLayout -cr 1 -hst 0 $scrlName[$c]`;
+			formLayout
+				-edit
+	
+				-attachForm $attrScroll "left" 0
+				-attachForm $attrScroll "top" ($colW+2)
+				-attachForm $attrScroll "bottom" 0
+				-attachForm $attrScroll "right" 0
+		
+				$attrForm;
+		columnLayout -adj 1 $colName[$c];
+				setParent.. ;
+			setParent.. ;
+		setParent.. ;
+	}
+	
+//pose Tab
+string $poseForm = `formLayout -numberOfDivisions 100 "Pose Library"`;
+gridLayout -nc 4 -cwh $colW $colW;
+	iconTextButton 
+		-st "iconOnly" 
+		-ann "New Library" 
+		-i1 ($imagepath  + "/newLibrary.bmp") 
+		-c "newLibraryPanel"
+		;
+	iconTextButton 
+		-st "iconOnly" 
+		-ann "Import Library" 
+		-i1 ($imagepath  + "/importLibrary.bmp") 
+		-c "openLibraryOptions"
+		;
+	iconTextButton 
+		-st "iconOnly"  
+		-ann "Delete Library" 
+		-i1 ($imagepath  + "/deleteLibrary.bmp") 
+		-c "deleteLibraryPanel"
+		;
+		
+setParent..;
+string $scrollPose = `scrollLayout -cr 1 -hst 0 poseScrollPanel`;
+		formLayout
+			-edit
+
+			-attachForm $scrollPose "left" 0
+			-attachForm $scrollPose "top" ($colW+2)
+			-attachForm $scrollPose "bottom" 0
+			-attachForm $scrollPose "right" 0
+
+			$poseForm;
+		
+columnLayout -adj 1 posColPanel;
+
+int $poseWH = 87;
+gridLayout -cr 1 -aec 0 -numberOfColumns 3 -cellWidthHeight $poseWH ($poseWH+20) poseLibraryPanel;
+
+			setParent..;
+		setParent..;
+	setParent..;
+setParent..;
+
+//channel/Layer
+string $layers[] = `gridLayout -q -ca LayerEditorDisplayLayerLayout`;
+int $panelH = (`size($layers)`*8)+10;
+int $chanButtW = 30;
+	if ($panelH >40)
+		$panelH = 40;
+
+string $channelForm = `formLayout -numberOfDivisions 100 "Channel Box"`;
+string $channelColumn = `columnLayout -adj 1`;
+
+text -fn "boldLabelFont" -al "left" "Channel Box";
+separator -st "single";  
+rowLayout 
+	-cl3 left center right
+	-nc 3 
+	-cw3 ($chanButtW*3) 50 ($chanButtW*3) 
+	-adj 2;
+
+	gridLayout -nc 3 -cwh $chanButtW $chanButtW;
+		iconTextButton 
+			-st "iconOnly" 
+			-c "paneLayout -edit -paneSize 2 100 0 channelPane" 
+			-ann "Display channel box full" 
+			-i1 ($imagepath  + "/channel.bmp")
+			;
+		iconTextButton 
+			-st "iconOnly" 
+			-c "paneLayout -edit -paneSize 2 0 100 channelPane" 
+			-ann "Display layer editor full" 
+			-i1 ($imagepath  + "/layer.bmp")
+			;
+		iconTextButton 
+			-st "iconOnly" 
+			-c ("paneLayout -edit -paneSize 2 100 " +  $panelH + " channelPane") 
+			-ann "Display layer editor and channel box in split view" 
+			-i1 ($imagepath  + "/layerChannel.bmp")
+			;
+	setParent..;
+	
+	text " ";
+	
+	gridLayout -nc 3 -cwh $chanButtW $chanButtW;
+		symbolButton  
+			-ann "Toggle between minipulators/no minipulators/hiden minipulators"
+			-i($imagepath + "selectTool" + $maskMinip + ".bmp")
+			-c "toggleMaskMinip"
+			maskMinipPanel
+			;		
+		symbolButton 
+			-ann "Change the speed at with the channel slider changes the attribute"
+			-i ($imagepath + "speed" + $channelSpeed + ".bmp")
+			-c "speedChange"
+			changeSpeedButtPanel
+			;						
+		symbolCheckBox
+			-ann "Toggle linear or hyperbolic channel slider"
+			-offImage ($imagepath + "hyperFalse.bmp")
+			-onImage ($imagepath + "hyperTrue.bmp")
+			-onCommand "channelBoxHyper 1"
+			-offCommand "channelBoxHyper 0"
+			-v $hyper
+			changeHyperButtPanel
+			;
+		
+		setParent..;
+	setParent..;
+setParent..;
+
+string $channelControl = `paneLayout -cn "horizontal2" -paneSize 2 100 $panelH channelPane`;
+	channelBox -hyp $hyper -spd $channelSpeed -mnp $maskMinip maskKeyChannelBoxPanel;
+		popupMenu;
+			menuItem -l "Key Selected" -c "MKeySelect";
+			menuItem -l "Key All" -c "MKeyAll";
+			menuItem -d 1;
+			menuItem -l "Break Connection" -c "breakMKeyConnection";
+			
+int $wh = 22;
+scrollLayout -cr 1 -hst 0;
+columnLayout -adj 1;
+text -fn "boldLabelFont" -al "left" "Layer Editor";
+separator -st "single"; 
+string $layers[] = `gridLayout -q -ca LayerEditorDisplayLayerLayout`;
+	for ($each in $layers)
+		{
+			string $state = `layerButton -q -ls $each`;
+			int $vis = `getAttr ($each + ".visibility")`;
+			rowLayout 
+				-cl3 left center right
+				-nc 3 
+				-cw3 ($wh+3) ($wh+3) 50 
+				-adj 3;
+			
+				if ($vis == 0)  
+						iconTextButton 
+							-h $wh 
+							-w $wh 
+							-st "iconOnly" 
+							-i1 ($imagepath + "visUpMSK.bmp") 
+							-c ("layerVis " + $each) 
+							($each + "MSKvisPanel")
+							;	
+							
+				if ($vis == 1) 
+						iconTextButton 
+							-h $wh 
+							-w $wh 
+							-st "iconOnly" 
+							-i1 ($imagepath + "/visDownMSK.bmp") 
+							-c ("layerVis " + $each) 
+							($each + "MSKvisPanel")
+							;
+
+				iconTextButton 
+					-h $wh 
+					-w $wh 
+					-st "iconOnly" 
+					-i1 ($imagepath + $state + "MSK.bmp") 
+					-c ("layerState " + $each) 
+					($each + "MSKstatePanel")
+					;
+				
+				text -fn "boldLabelFont" $each;
+					popupMenu;
+					radioMenuItemCollection; 
+						menuItem -l "Template" -c ("menuSetLayer " + $each + " template 1") -rb 0 ($each + "PopuptemplatePanel");
+						menuItem -l "Reference" -c ("menuSetLayer " + $each + " reference 2") -rb 0 ($each + "PopupreferencePanel");
+						menuItem -l "Normal" -c ("menuSetLayer " + $each + " normal 0") -rb 0 ($each + "PopupnormalPanel"); 
+						menuItem -d 1;
+						
+						if ($vis == 0)
+							menuItem -l "Visability : Off" -c ("layerVis " + $each) ($each + "PopupVisabilityPanel");
+						
+						if ($vis == 1)
+							menuItem -l "Visability : On" -c ("layerVis " + $each) ($each + "PopupVisabilityPanel");
+						
+						menuItem -edit -rb 1 ($each + "Popup" + $state + "Panel"); 
+				setParent..;
+			separator ; 
+		}
+			setParent..;
+		setParent..;
+	setParent..;
+setParent..;
+
+formLayout
+	-edit
+
+	-attachForm $channelColumn "left" 0
+	-attachForm $channelColumn "top" 0
+	-attachControl $channelColumn bottom 0 $channelControl
+	-attachForm $channelColumn "right" 0
+		
+	-attachForm $channelControl "left" 0
+	-attachForm $channelControl "top" 50
+	-attachForm $channelControl "bottom" 0
+	-attachForm $channelControl "right" 0
+
+	$channelForm;	
+}
+
+global proc mskRemovePanel( string $gMaskPanel)
+{
+}
+
+global proc mskDeletePanel( string $gMaskPanel)
+{
+}
+
+global proc maskUIset()
+{
+ShowUIElements;
+toggleUIComponentVisibility "Tool Box";
+toggleUIComponentVisibility "Help Line";
+toggleUIComponentVisibility "Command Line";
+toggleUIComponentVisibility "Channel Box / Layer Editor";
+toggleUIComponentVisibility "Shelf";
+toggleUIComponentVisibility "Status Line";	
+}
+
+global proc switchMaskPanel(string $charName)
+{
+if (!`scriptedPanel -q -ex maskPanel`)
+	maskPanel;
+
+global string $gCharName;
+string $curve[];
+string $colName[];
+string $scrlName[];
+
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+$gCharName = $charName;
+$curve[0] = $charName + "_LeftEyeBrowControl";
+$curve[1] = $charName + "_LeftEyeControl";
+$curve[2] = $charName + "_MouthControl";
+	
+$colName[0] = "eyeBrowColumn";
+$colName[1] = "eyeColumn";
+$colName[2] = "mouthColumn";
+
+$scrlName[0] = "eyebrowScrollPanel";
+$scrlName[1] = "eyeScrollPanel";
+$scrlName[2] = "mouthScrollPanel";
+	
+int $stepKeyWH = 15;
+
+for ($c=0; $c<3; $c++)
+	{
+		deleteUI $colName[$c];	
+		setParent $scrlName[$c];	 
+		columnLayout -adj 1 $colName[$c];
+		
+		string $attr[] = `listAttr -k $curve[$c]`;
+		int $nameW=0;
+			for ( $each in $attr )
+				if (`size($each)` > $nameW)
+					$nameW = `size($each)`;
+			
+			for ( $each in $attr )
+			{
+				float $min = `addAttr -q -minValue ($curve[$c] + "." + $each)`;
+				float $max = `addAttr -q -maxValue ($curve[$c] + "." + $each)`;
+				
+				rowLayout
+					-nc 4
+					-cl4 left center right right
+					-cw4 ($stepKeyWH*3) 104 30 30
+					-rat 1 top 2
+					-adj 2
+					($curve[$c] + "_" + $each)
+					;				
+					rowLayout 
+						-cl3 left center right
+						-nc 3 
+						-cw3 $stepKeyWH $stepKeyWH $stepKeyWH; 
+					
+						iconTextButton 
+							-st "textOnly" 
+							-w $stepKeyWH 
+							-h $stepKeyWH 
+							-l "<"
+							-c ("backKey " + $curve[$c] + "." + $each)
+							("backKeyPanel" + $each)
+							;
+						iconTextCheckBox
+							-st "iconOnly" 
+							-i1 ($imagepath + "stepKeyOff.bmp")
+							-w $stepKeyWH 
+							-h $stepKeyWH  
+							-onc ("setKeyStep " + $curve[$c] + " " + $each) 
+							-ofc ("removeKeyStep " + $curve[$c] + " " + $each)
+							("stepKey" + $each + "Panel")
+							;
+						iconTextButton 
+							-st "textOnly"  
+							-w $stepKeyWH 
+							-h $stepKeyWH 
+							-l ">"
+							-c ("advanceKey " + $curve[$c] + "." + $each)
+							("advanceKeyPanel" + $each)
+							;
+					setParent..;
+					
+					attrFieldSliderGrp
+						-pre 3 
+						-cat 1 right 5 
+						-cw 1 ($nameW *7)  
+						-cw 2 40
+						-cw 3 58 
+						-min $min
+						-max $max
+						-at ($curve[$c] + "." + $each)
+						-adjustableColumn 3
+						-columnAlign 1 right
+						-columnWidth 4 1
+						($each + "Panel")
+						;
+					symbolButton
+						-ann ("Set key for : " + $each ) 
+						-image ($imagepath + "keyFrame.bmp")
+						-c ( "setKeyframe " + $curve[$c] + "." + $each + ";keyButtonChange")
+						;					
+					symbolCheckBox  
+						-ann ("Toggle auto key for : " + $each)
+						-offImage ($imagepath + "autoKeyFalseI.bmp")
+						-onImage ($imagepath + "autoKeyTrueI.bmp")
+						-offCommand ( "maskSliderAutoKeyOff " + $each)
+						-onCommand ("maskSliderAutoKeyOn " + $curve[$c] + " " + $each)
+						($each + "MaskAutoKeyPanel")
+						;
+				setParent.. ;
+			}
+	}	
+	
+deleteUI poseLibraryPanel;		
+setParent posColPanel;	 
+int $poseWH = 87;
+gridLayout -cr 1 -aec 0 -numberOfColumns 3 -cellWidthHeight $poseWH ($poseWH+20) poseLibraryPanel;
+
+//auto load library
+string $fileDir = `workspace -q -rd`+ "Masquerade/Poses/";
+$fileExists = `filetest -r ( $fileDir + $charName + "_poseLibrary.mel" )`;
+if ( $fileExists == 1 )
+	autoImportLibraryPanel $charName;
+
+keyButtonChange;
+
+select -cl;	
+}
+
+global proc launchMaskFromPanel()
+{
+global string $gCharName;
+int $sizeChar = `size($gCharName)`;
+
+if($sizeChar==0)
+	error "Please load a contol mask";
+
+MasqueradeUI $gCharName;
+}
+
+//set key panel	
+global proc setKeyPanel(string $curve)
+{
+global string $gCharName;
+int $sizeChar = `size($gCharName)`;
+
+if($sizeChar==0)
+	error "Please load a contol mask";
+	
+if($sizeChar>0)	
+	{
+		string $attr[] = `listAttr -k ($gCharName + "_" + $curve + "Control")`;
+		for ($each in $attr)
+			setKeyframe ($gCharName + "_" + $curve + "Control" + "." + $each); 
+		keyButtonChange;  
+	}
+}
+
+//remove key panel
+global proc removeKeysPanel(string $curve)
+{
+global string $gCharName;
+int $sizeChar = `size($gCharName)`;
+float $currentTime = `currentTime -q`;
+
+if($sizeChar==0)
+	error "Please load a contol mask";
+	
+if($sizeChar>0)	
+	{
+		cutKey -cl ($gCharName + "_" + $curve + "Control");
+		keyButtonChange; 
+	}
+}
+
+//reset key panel
+global proc resetPanel(string $curve)
+{
+global string $gCharName;
+int $sizeChar = `size($gCharName)`;
+
+if($sizeChar==0)
+	error "Please load a contol mask";
+	
+if($sizeChar>0)	
+	{
+		string $attr[] = `listAttr -k ($gCharName + "_" + $curve + "Control")`;
+		for ($each in $attr)
+			{
+				float $defult = `addAttr -q -dv ($gCharName + "_" + $curve + "Control" + "." + $each)`;
+				setAttr ($gCharName + "_" + $curve + "Control" + "." + $each) $defult;   
+			}
+	}
+}
+
+//auto key sliders
+global proc maskSliderAutoKeyOff (string $attr)
+{
+if(`window -q -ex Masquerade`)
+	{
+		attrFieldSliderGrp -edit -cc " " ($attr + "maskWin");
+		symbolCheckBox -edit -v 0 ($attr + "MaskAutoKey");
+	}
+
+attrFieldSliderGrp -edit -cc " " ($attr + "Panel");
+symbolCheckBox -edit -v 0 ($attr + "MaskAutoKeyPanel");
+}
+
+global proc maskSliderAutoKeyOn (string $curve, string $attr)
+{
+if(`window -q -ex Masquerade`)
+	{
+		attrFieldSliderGrp -edit -cc ("setKeyframe " + $curve + "." + $attr + ";keyButtonChange") ($attr + "maskWin");
+		symbolCheckBox -edit -v 1 ($attr + "MaskAutoKey");
+	}
+
+attrFieldSliderGrp -edit -cc ("setKeyframe " + $curve + "." + $attr + ";keyButtonChange") ($attr + "Panel");
+symbolCheckBox -edit -v 1 ($attr + "MaskAutoKeyPanel");
+}
+
+global proc checkKeyPanel(string $curve)
+{
+global string $gCharName;
+int $sizeChar = `size($gCharName)`;
+
+if($sizeChar==0)
+	error "Please load a contol mask";
+	
+if($sizeChar>0)	
+	{
+		string $passCurve = $gCharName + "_" + $curve + "Control";
+		checkKeyUI $passCurve;
+	}
+}
+
+global proc checkKeyUI(string $curve)
+{
+string $attr[] = `listAttr -k $curve`;
+int $h = `size($attr)`;
+int $w;
+
+if($h == 0)
+	error "No attributes found";
+
+if (`window -q -ex checkKey`)
+	deleteUI checkKey;
+
+window -s 0 -tlb 1 -t "Check Key" checkKey;
+string $winForm = `formLayout -numberOfDivisions 100`;
+
+string $attrControl = `scrollLayout -hst 0 -cr 1`;
+columnLayout -adj 1 checkCol;
+	
+for ($each in $attr)
+	{
+		if ( `size($each)` > $w )
+			$w = `size($each)`;
+		checkBox -al left -l $each $each;
+	}
+	
+if ($w<11)
+	$w=11;
+
+if ($h>20)
+	$h=20;
+
+setParent..;
+setParent..;
+
+string $buttControl = `columnLayout -adj 1`; 
+rowLayout 
+	-cl2 center center
+	-nc 2 
+	-cw2 ((($w*7)+50)/2) ((($w*7)+50)/2);
+	button -l "Check All" -w ((($w*7)+50)/2) -c "checkKeyAll 1";
+	button -l "Remove All" -w ((($w*7)+51)/2) -c "checkKeyAll 0";
+setParent..;
+button -l "Key Checked" -c ("keyChecked " + $curve);
+button -l "Close" -c "deleteUI checkKey";
+
+formLayout
+	-edit
+
+	-attachForm $attrControl "left" 0
+	-attachForm $attrControl "top" 0
+	-attachForm $attrControl "bottom" 66
+	-attachForm $attrControl "right" 0
+	
+	-attachForm $buttControl "left" 0
+	-attachControl $buttControl top 0 $attrControl
+	-attachForm $buttControl "bottom" 0
+	-attachForm $buttControl "right" 0
+
+	$winForm;
+
+window -edit -wh (($w*7)+56) (($h*16)+96) checkKey;
+showWindow checkKey;
+}
+
+global proc checkKeyAll(int $value)
+{
+string $checkBox[] = `columnLayout -q -ca checkCol`;
+for ($each in $checkBox)
+	checkBox -edit -v $value $each;			
+}
+
+global proc keyChecked(string $curve)
+{
+string $checkBox[] = `columnLayout -q -ca checkCol`;
+
+for ($each in $checkBox)
+	{
+		int $state = `checkBox -q -v $each`;
+		if ($state == 1)
+			setKeyframe ($curve + "." + $each);
+	}
+	
+if(`window -q -ex checkKey`)
+	deleteUI checkKey;
+
+keyButtonChange;
+}
+	
+//pose library
+global proc poseButtonOne(string $charName, string $incomingCurve)
+{
+string $curve[];
+$curve[0] = $incomingCurve;
+
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";	
+int $checkChange = 0;
+
+string $cBox[] = `listAttr -k $curve`;
+for ( $attr in $cBox )
+	{
+		float $value = getAttr ( $incomingCurve + "." + $attr );
+		float $min = `addAttr -q -minValue ( $incomingCurve + "." + $attr )`;
+		float $max = `addAttr -q -maxValue ( $incomingCurve + "." + $attr )`;
+		if ($value>$max)
+			{
+				autoKeyframe -state 0;
+				iconTextCheckBox -edit -v 0  -i1 ($imagepath  + "/autoKeyFalse.bmp") maskAutoKey;
+				setAttr ( $incomingCurve + "." + $attr ) $max;
+				warning ( $incomingCurve + "." + $attr + " value was greater than maximun, attribute set to maximum : " + $max);
+				$checkChange = 1;
+			}
+				
+		if ($value<$min)
+			{
+				autoKeyframe -state 0;
+				iconTextCheckBox -edit -v 0  -i1 ($imagepath  + "/autoKeyFalse.bmp") maskAutoKey;
+				setAttr ( $incomingCurve + "." + $attr ) $min;
+				warning ( $incomingCurve + "." + $attr + " value was less than minimum, attribute set to minimum : " + $min);
+				$checkChange = 1;
+			}
+	}	
+	
+if($checkChange==1)
+	{
+		warning "Auto key frame turned OFF";
+		warning "Attributes less then minimum value, or greater than maximum value. See script editor for a list of affected attributes";
+	}
+
+poseButton $curve $charName;
+}
+
+global proc poseButtonAll(string $charName)
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";	
+int $checkChange = 0;
+
+string $curve[];
+$curve[0] = $charName + "_LeftEyeBrowControl";
+$curve[1] = $charName + "_LeftEyeControl";
+$curve[2] = $charName + "_MouthControl";
+
+for ($eachCurve in $curve)
+	{
+		string $cBox[] = `listAttr -k $eachCurve`;
+		for ( $attr in $cBox )
+			{
+				float $value = getAttr ($eachCurve + "." + $attr );
+				float $min = `addAttr -q -minValue ($eachCurve + "." + $attr )`;
+				float $max = `addAttr -q -maxValue ($eachCurve + "." + $attr )`;
+				if ($value > $max)
+					{
+						autoKeyframe -state false;
+						iconTextCheckBox -edit -v 0  -i1 ($imagepath  + "/autoKeyFalse.bmp") maskAutoKey;
+						setAttr ($eachCurve + "." + $attr ) $max;
+						warning ($eachCurve + "." + $attr + " value was greater than maximun, attribute set to maximum : " + $max);
+						$checkChange = 1;
+					}				
+				if ($value < $min)
+					{
+						autoKeyframe -state false;
+						iconTextCheckBox -edit -v 0  -i1 ($imagepath  + "/autoKeyFalse.bmp") maskAutoKey;
+						setAttr ($eachCurve + "." + $attr ) $min;
+						warning ($eachCurve + "." + $attr + " value was less than minimum, attribute set to minimum : " + $min);
+						$checkChange = 1;
+					}
+			}
+	}
+
+if($checkChange ==1)
+	{
+		warning "Auto key frame turned OFF";
+		warning "Attributes less then minimum value, or greater than maximum value. See script editor for a list of affected attributes";
+	}
+	
+poseButton $curve $charName;
+}
+
+global proc poseButtonChecked(string $charName)
+{
+string $curve[];
+string $checkBox[];
+
+$curve = {"Eye Brows", "Eyes", "Mouth"};
+$checkBox = {"LeftEyeBrow_CB", "LeftEye_CB", "Mouth_CB"};
+
+if (`window -q -ex checkPose`)
+	deleteUI checkPose;
+
+window -s 0 -tlb 1 -t "Check Pose" checkPose;
+columnLayout -adj 1 checkColPose;
+		
+for ($cb=0; $cb<3; $cb++)
+	checkBox -v 1 -al left -l $curve[$cb] $checkBox[$cb];
+
+button -l "Create Pose" -c ("poseButtonCheck " + $charName);
+button -l "Close" -c "deleteUI checkPose";
+
+window -edit -wh 100 116 checkPose;
+showWindow checkPose;
+}
+
+global proc poseButtonCheck(string $charName)
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";	
+int $checkChange = 0;
+
+string $curve[];
+string $checkBox[];
+$checkBox = {"LeftEyeBrow", "LeftEye", "Mouth"};
+
+for($eachCB in $checkBox)
+	{
+		int $cb = `checkBox -q -v ($eachCB + "_CB")`;
+		if ($cb==1)
+			{
+				$curve[`size($curve)`] = ($charName + "_" + $eachCB + "Control");
+			}
+	}
+
+for ($eachCurve in $curve)
+	{
+		string $cBox[] = `listAttr -k $eachCurve`;
+		for ( $attr in $cBox )
+			{
+				float $value = getAttr ($eachCurve + "." + $attr );
+				float $min = `addAttr -q -minValue ($eachCurve + "." + $attr )`;
+				float $max = `addAttr -q -maxValue ($eachCurve + "." + $attr )`;
+				if ($value > $max)
+					{
+						autoKeyframe -state false;
+						iconTextCheckBox -edit -v 0  -i1 ($imagepath  + "/autoKeyFalse.bmp") maskAutoKey;
+						setAttr ($eachCurve + "." + $attr ) $max;
+						warning ($eachCurve + "." + $attr + " value was greater than maximun, attribute set to maximum : " + $max);
+						$checkChange = 1;
+					}				
+				if ($value < $min)
+					{
+						autoKeyframe -state false;
+						iconTextCheckBox -edit -v 0  -i1 ($imagepath  + "/autoKeyFalse.bmp") maskAutoKey;
+						setAttr ($eachCurve + "." + $attr ) $min;
+						warning ($eachCurve + "." + $attr + " value was less than minimum, attribute set to minimum : " + $min);
+						$checkChange = 1;
+					}
+			}
+	}
+
+if($checkChange ==1)
+	{
+		warning "Auto key frame turned OFF";
+		warning "Attributes less then minimum value, or greater than maximum value. See script editor for a list of affected attributes";
+	}
+	
+poseButton $curve $charName;
+}
+
+global proc poseButton(string $curve[], string $charName)
+{
+int $showWinState = `menuItem -q -cb showPoseAttrWinToggle`;
+
+if (`window -q -ex checkPose`)
+	deleteUI checkPose;
+		
+if (`window -ex poseUI`) 
+	deleteUI poseUI;
+window -mb 1 -t "Create Custom Pose" poseUI;
+
+paneLayout -cn "single";
+	scrollField poseText;
+		
+window -edit -wh 600 500 poseUI;
+
+string $allText;
+string $keyAttr;
+string $poseButton;
+		 
+for ($obj in $curve)
+	{
+		string $selAttr[] = `listAttr -k $obj`;
+		for ($attr in $selAttr)
+			{
+				float $value = `getAttr ($obj + "." + $attr)`;
+				$allText = $allText + "setAttr " + $obj + "." + $attr + " " + $value + ";\n";
+			}
+	}
+
+scrollField -e -text $allText poseText;
+menu -l "Pose";
+   menuItem -l "Create Pose" -ann "Create button for current pose" -c ("makePose " + $charName);
+   menuItem -l "Close" -ann " Exit pose creator" -c "deleteUI poseUI";
+
+if ($showWinState==1)
+	showWindow poseUI; 
+ 
+if ($showWinState==0)
+	makePose $charName;
+}
+
+global proc makePose(string $charName)
+{
+if (!`optionVar -exists "autoSaveColorButton"`)
+optionVar -intValue "autoSaveColorButton" 1;
+
+int $stateAuto = `optionVar -q "autoSaveColorButton"`; 
+
+if ( `window -exists makePoseUI`)
+	deleteUI makePoseUI;
+
+int $w = 90;
+float $userBackColor[] = `displayRGBColor -q -c background`;
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+window -s 0 -tlb 1 -mb 1 -t "Pose Creator" makePoseUI;
+
+menu -l "Colors";
+	menuItem -l "Create Color Button" -ann "Create a quick pick color button" -c "creatColorButton";
+	menuItem -d 1;
+	menuItem -l "Save Color Library" -ann "Save the quick pick color buttons" -c "saveColorButtons";
+	menuItem -l "Auto Save Color Button" -ann "Toggle auto save of quick pick color buttons" -cb $stateAuto autoSaveColorCheck;
+	menuItem -d 1;
+	menuItem -l "Import Color Library" -ann "Add color buttons to current list" -c "importColorLibrary";
+	menuItem -d 1;
+	menuItem -l "Clear Color Library" -ann "Remove all color buttons from library" -c "deleteColorButton";
+   
+	columnLayout -adj 1;
+		picture -en 0 -i ($imagepath + "poseLibrary.bmp");
+			rowLayout
+				-nc 2
+				-adj 2
+				-cw2 60 300
+				-cl2 center center
+				;
+			text -al "left" "Pose Name";
+			textField poseName;
+		setParent..;
+		separator;
+		colorSliderGrp 
+			-cat 1 right 5 
+			-cw 1 85 
+			-cw 2 70 
+			-adjustableColumn 3
+			-l "Backround Color" 
+			-rgb $userBackColor[0] $userBackColor[1] $userBackColor[2] 
+			backColor
+			;
+		frameLayout -borderStyle "etchedOut" -l "Quick Pick Colors";
+			int $celWH = 20;
+				gridLayout -nr 1 -nc 16 -cwh $celWH $celWH -aec 0 quickColor;
+			setParent..;
+		setParent..;
+		 
+		text " "; 
+		
+			rowLayout
+				-cl4 left center center center
+				-nc 4
+				-cw4 60 $w 25 $w
+				;
+			text " ";
+			button -w $w -l "Create Pose" -c ("overwriteButton " + $charName);
+			text " ";
+			button- w $w -l "Close" -c "deleteUI makePoseUI";
+
+//auto load library
+string $fileDir = `workspace -q -rd`+ "Masquerade/";
+$fileExists = `filetest -r ( $fileDir + "color.mel" )`;
+
+if ( $fileExists == 1 )
+	autoImportColorLibrary;
+
+window -edit -wh 332 272 -t "Pose Creator" -tlb 1 makePoseUI;						
+autoResizeColorLibrary;
+showWindow makePoseUI;
+}
+
+//Check to see if the window should be resized
+global proc autoResizeColorLibrary()
+{
+string $colorButtons[] = `gridLayout -q -ca quickColor`;
+float $numButts = `size($colorButtons)`;
+if ($numButts > 1)
+	{ 
+		string $remainderCheck[];
+		float $div = $numButts/16;
+		string $divS = $div;
+			tokenize $divS "." $remainderCheck;
+		int $sizeRemainder = `size($remainderCheck)`;
+
+		if ($sizeRemainder == 1)
+			{
+				int $h = `window -q -h makePoseUI`;
+				window -edit -h ($h+20) makePoseUI;
+			}	
+	}
+}
+
+global proc creatColorButton()
+{
+float $sliderColor[] = `colorSliderGrp -q -rgb backColor`;
+string $colorButtons[] = `gridLayout -q -ca quickColor`;
+int $numButts = `size($colorButtons)`+1;
+
+autoResizeColorLibrary;
+
+int $state = `menuItem -query -cb autoSaveColorCheck`;
+optionVar -intValue "autoSaveColorButton" $state;
+
+setParent quickColor;
+iconTextButton -st "textOnly" -bgc $sliderColor[0] $sliderColor[1] $sliderColor[2] -c ( "colorSliderGrp -edit -rgb " + $sliderColor[0] + " " + $sliderColor[1] + " " + $sliderColor[2] + " backColor" ) ("colorButton" + $numButts); 
+	
+if ($state == 0)
+	print "Colors not saved. To save the color library turn on \"Auto Save Color Button\" in the color menu\n";
+
+if ($state == 1)
+	saveColorButtons;
+}
+
+global proc deleteColorButton()
+{
+string $colorButtons[] = `gridLayout -q -ca quickColor`;
+for ($each in $colorButtons)
+	deleteUI $each;
+
+window -edit -h 272 makePoseUI;
+gridLayout -edit -nr 1 quickColor;
+}
+
+global proc saveColorButtons()
+{
+string $colorButtons[] = `gridLayout -q -ca quickColor`;
+int $sizeCheck = `size($colorButtons)`;
+if ($sizeCheck == 0)
+	error "No quick pick color buttons to save";
+
+//date
+string $dateDreakdown[];
+string $systemDate = `system "date"`;
+tokenize $systemDate ": " $dateDreakdown;
+string $date = $dateDreakdown[4] + " " + $dateDreakdown[5];
+
+//time
+string $timeDreakdown[];
+string $systemtime = `system "time"`;
+tokenize $systemtime ":.\n " $timeDreakdown;
+string $time =  $timeDreakdown[4] + ":" + $timeDreakdown[5] + "." + $timeDreakdown[6];	
+
+string $fileDir = `workspace -q -rd`+ "Masquerade/";
+int $fileID = `fopen ( $fileDir + "color.mel") "w"`;
+
+fprint $fileID ( "//Masquerade 1.0 Beta\n//Color Library\n//Last Modified (" + $date + " " + $time + ")"+ "\n\n");
+
+string $color[];
+for ($each in $colorButtons)
+	{
+		string $command = `iconTextButton -q -c $each`;
+			tokenize $command " " $color;
+		
+		fprint $fileID "iconTextButton \n\t-st \"textOnly\"\n";
+		fprint $fileID ("\t-bgc " + $color[3] + " " + $color[4] + " " + $color[5] + "\n");
+		fprint $fileID ("\t-c \"" + $command + "\"\n");
+		fprint $fileID ("\t" + $each + ";\n\n");
+	}
+	
+fclose $fileID;
+print ( "File saved to: " + $fileDir + "color.mel\n");
+}
+
+global proc importColorLibrary()
+{
+string $fileDir = `workspace -q -rd`+ "Masquerade/";
+string $fileName = `fileDialog -dm ( $fileDir + "*.mel" )`;
+
+if(`size($fileName)` == 0)
+	error "Import color library canceled";
+
+setParent quickColor;	
+file -import $fileName; 
+}
+
+global proc autoImportColorLibrary()
+{
+string $fileDir= `workspace -q -rd`+ "Masquerade/";
+string $fileName = $fileDir + "color.mel";
+
+setParent quickColor;
+file -import $fileName; 
+}
+
+global proc overwriteButton(string $charName)
+{
+int $poseEx = 0;
+$poseName = `textField -q -text poseName`;
+string $poseChildren[] = `gridLayout -q -ca poseLibrary`;
+
+string $image = `workspace -q -rd`+ ("Masquerade/Images/" + $charName + "/" + $poseName + ".bmp");
+
+for($each in $poseChildren)
+	{
+		if (`match ($poseName + "PoseButton_Orig") $each` == ($poseName + "PoseButton_Orig"))
+			$poseEx = 1;
+		
+		if (`match ($poseName + "PoseButton") $each` == ($poseName + "PoseButton"))
+			$poseEx = 1;
+	}
+
+if($poseEx == 1)
+	{
+		string $result = `confirmDialog
+			-title "Over-write Button"
+			-message ($poseName + " already exists\nDo you wish to over-write it?")
+			-ma center
+			-button "Yes"
+			-button "No"
+			-defaultButton "Yes"
+			-cancelButton "No"
+			-dismissString "No"`
+			;
+						
+		if ($result == "Yes")
+			{
+				sysFile -delete $image;
+				if(`iconTextButton -q -ex ($poseName + "PoseButton_Orig")`)
+					deleteUI ($poseName + "PoseButton_Orig");
+				if(`iconTextButton -q -ex ($poseName + "PoseButtonPanel")`)
+					deleteUI ($poseName + "PoseButtonPanel");					
+				if(`iconTextButton -q -ex ($poseName + "PoseButton")`)
+					deleteUI ($poseName + "PoseButton");					
+				makeButtonPose $charName;
+			}
+	}
+else
+	overWriteImage $charName;		
+}
+
+global proc overWriteImage(string $charName)
+{
+$poseName = `textField -q -text poseName`;
+string $image = `workspace -q -rd`+ ("Masquerade/Images/" + $charName + "/" + $poseName + ".bmp");
+
+$fileExists = `filetest -r $image`;
+if ($fileExists == 1)
+	{
+		string $result = `confirmDialog
+			-title "Over-write Button"
+			-message ($image + " already exists\nDo you wish to over-write it?")
+			-ma center
+			-button "Yes"
+			-button "No"
+			-defaultButton "Yes"
+			-cancelButton "No"
+			-dismissString "No"`
+			;
+						
+		if ($result == "Yes")
+			{
+				sysFile -delete $image;
+				makeButtonPose $charName;
+			}
+	}
+else
+	makeButtonPose $charName;	
+}
+
+global proc makeButtonPose(string $charName)
+{
+string $multiChar[];
+int $state = `iconTextCheckBox -q -value autoSavePose`;
+string $poseName = `textField -q -text poseName`;
+
+//check for name
+if ( `size $poseName` == 0 )
+	error "Please enter a pose name";
+
+//check for spaces in name
+string $testName = $poseName + "test";
+tokenize $testName "!@#$%^&*(){}[]-_=+':;,.<>?/" $multiChar;
+$numWords = `size($multiChar)`;
+
+if ( $numWords > 1 )
+	error "Please remove the symble from your pose name \"!@#$%^&*(){}[]-_=+':;,.<>?/\"";
+		
+//Masquerade/images/"$charName"
+string $projectDir = `workspace -q -rd`;
+int $PoseLibraryImagesCharNameDirExists = `filetest -d ($projectDir+"Masquerade/Images/" + $charName + "/")`;
+if ($PoseLibraryImagesCharNameDirExists == 0) 
+	{
+		chdir ($projectDir+"Masquerade/Images");
+		system ("mkdir " + $charName);		
+	}
+
+float $currentTime = `currentTime -q`;
+string $imagepath = `workspace -q -rd`+ "Masquerade/Images/" + $charName + "/";
+float $sliderColor[] = `colorSliderGrp -q -rgb backColor`;
+float $backColorNew[] = $sliderColor;
+float $backColorOrig[] = `displayRGBColor -q -c background`;
+int $userRenderFormat = `getAttr "defaultRenderGlobals.imageFormat"`;
+$currentTime = `currentTime -q`;
+
+setAttr "defaultRenderGlobals.imageFormat" 20;	
+displayRGBColor -c background $backColorNew[0] $backColorNew[1] $backColorNew[2];
+modelEditor -e -av maskFaceCam;
+playblast -orn 0 -st $currentTime -et $currentTime -w 90 -h 90 -p 100 -v 0 -fo -fmt image -f ($imagepath + "mskTemp"); 	
+	
+$list = `getFileList -folder $imagepath -filespec "mskTemp.*"`;
+$fileExists = `filetest -r ($imagepath + $list[0])`;
+if ( $fileExists == 1 )
+	sysFile -delete ($imagepath + $poseName);
+
+sysFile -rename ( $imagepath + $poseName + ".bmp" ) ($imagepath + $list[0]);
+setAttr "defaultRenderGlobals.imageFormat" $userRenderFormat;
+
+string $poseText = `scrollField -q -text poseText`;
+string $image = $imagepath + $poseName + ".bmp";
+
+if(`iconTextButton -q -ex ( $poseName + "PoseButton" )`)
+	deleteUI ( $poseName + "PoseButton" );
+if(`iconTextButton -q -ex ( $poseName + "PoseButton_Orig" )`)
+	deleteUI ( $poseName + "PoseButton_Orig" );
+
+setParent poseLibrary;
+	string $poseButt = `iconTextButton -style "iconAndTextVertical" -l $poseName -i1 $image -c $poseText ($poseName + "PoseButton_Orig")`;
+		popupMenu;
+			menuItem -l "Edit Label" -c ("poseEditLabel " + $poseName + "PoseButton_Orig");
+			menuItem -l "Edit Image" -c ("poseEditImage " + $poseName + "PoseButton_Orig");
+			menuItem -l "Edit Command" -c ("poseEditCommand " + $poseName + "PoseButton_Orig");
+			menuItem -d 1;
+			menuItem -l "Delete Pose Button" -c ("poseDelete " + $poseName + "PoseButton_Orig");
+			
+if(`iconTextButton -q -ex ( $poseName + "PoseButtonPanel" )`)
+	deleteUI ( $poseName + "PoseButtonPanel" );
+
+setParent poseLibraryPanel; 
+	string $poseButtPanel = `iconTextButton -style "iconAndTextVertical" -l $poseName -i1 $image -c $poseText ( $poseName + "PoseButtonPanel" )`;
+		popupMenu;
+			menuItem -l "Edit Label" -c ("poseEditLabel " + $poseName + "PoseButtonPanel");
+			menuItem -l "Edit Image" -c ("poseEditImage " + $poseName + "PoseButtonPanel");
+			menuItem -l "Edit Command" -c ("poseEditCommand " + $poseName + "PoseButtonPanel");
+			menuItem -d 1;
+			menuItem -l "Delete Pose Button" -c ("poseDelete " + $poseName + "PoseButtonPanel");
+	
+displayRGBColor -c background $backColorOrig[0] $backColorOrig[1] $backColorOrig[2];
+
+if ($state == 1)
+	{
+		savePoseButtons $charName;
+		optionVar -intValue "autoSaveMaskPose" 1;
+	}
+else
+	optionVar -intValue "autoSaveMaskPose" 0;
+		
+if ( `window -exists makePoseUI`)
+	deleteUI makePoseUI;
+
+if ( `window -exists poseUI`)
+	deleteUI poseUI;
+}
+
+global proc savePoseButtons(string $charName)
+{
+//date
+string $dateDreakdown[];
+string $systemDate = `system "date"`;
+tokenize $systemDate ": " $dateDreakdown;
+string $date = $dateDreakdown[4] + " " + $dateDreakdown[5];
+
+//time
+string $timeDreakdown[];
+string $systemtime = `system "time"`;
+tokenize $systemtime ":.\n " $timeDreakdown;
+string $time =  $timeDreakdown[4] + ":" + $timeDreakdown[5] + "." + $timeDreakdown[6];	
+
+int $state = `iconTextCheckBox -q -v autoSavePose`;
+string $poseChildren[] = `gridLayout -q -ca poseLibrary`;
+int $numButts = `size($poseChildren)`;
+
+string $mayaFile = `file -q -sceneName`;	
+
+string $fileName = `workspace -q -rd`+ "Masquerade/Poses/";
+int $fileID = `fopen ( $fileName + $charName + "_poseLibrary.mel") "w"`;
+
+string $findOrig[];
+
+fprint $fileID ( "//Masquerade 1.0 Beta\n//Last Modified (" + $date + " " + $time + ")\n//File name : " + $charName + "_poseLibrary.mel" + "\n//Pose Library for : " + $mayaFile + "\n\n");
+
+for ($b=0; $b<$numButts; $b++)
+	{
+		int $repeat;
+		tokenize $poseChildren[$b] "_" $findOrig;
+		int $lastVal = `size($findOrig)`;
+		
+		if ($findOrig[$lastVal-1] == "Orig")
+			$repeat = 2;
+		else
+			$repeat = 1;
+		
+		string $setAttrString[];
+		string $poseLable = `iconTextButton -q -l $poseChildren[$b]`;
+		string $poseImage = `iconTextButton -q -i1 $poseChildren[$b]`;
+		string $poseCommand = `iconTextButton -q -c $poseChildren[$b]`;
+		
+		tokenize $poseCommand "\n;" $setAttrString;
+		int $numAttr = `size($setAttrString)`;
+		
+		fprint $fileID ("//Pose button for : " + $poseLable + "\nstring $poseButton" + $b + "=\"" + $poseLable + "\";\niconTextButton\n\t-st \"iconAndTextVertical\"\n");
+		fprint $fileID ("\t-l $poseButton" + $b + "\n\t-c(\"\"\n");
+		
+		for ($i=0; $i<$numAttr; $i+=$repeat)
+				fprint $fileID ("\t  +\"" + $setAttrString[$i] + ";\"\n" );
+		
+		fprint $fileID ("\t  )\n\t-i1 \"" + $poseImage + "\"\n");
+		fprint $fileID ("\t($poseButton" + $b + " + \"PoseButton\");\n");
+		
+		fprint $fileID ( "popupMenu;\n\tmenuItem -l \"Edit Label\" -c (\"poseEditLabel \" + $poseButton" + $b + ");");
+		fprint $fileID ("\n\tmenuItem -l \"Edit Image\" -c (\"poseEditImage \" + $poseButton" + $b + ");");
+		fprint $fileID ("\n\tmenuItem -l \"Edit Command\" -c (\"poseEditCommand \" + $poseButton" + $b + " + \"PoseButton\");");	
+		fprint $fileID ("\n\tmenuItem -d 1;\n\tmenuItem -l \"Delete Pose Button\" -c (\"poseDelete \" + $poseButton" + $b + ");\n\n");
+	}
+	
+fclose $fileID;
+
+print ( "File saved to: " + $fileName + $charName + "_poseLibrary.mel\n");
+}
+
+global proc autoImportLibrary(string $charName)
+{
+string $fileDir= `workspace -q -rd`+ "Masquerade/Poses/";
+string $fileName = $fileDir + $charName + "_poseLibrary.mel";
+setParent poseLibrary;
+file -import $fileName; 
+select -cl;	
+}
+	
+global proc openLibraryOptions()
+{
+string $fileDir = `workspace -q -rd`+ "Masquerade/Poses/";
+string $fileName = `fileDialog -dm ( $fileDir + "*.mel" )`;
+
+if(`size($fileName)` == 0)
+	error "Import pose library canceled";
+
+if(`window -q -ex Masquerade`)
+	{
+		setParent poseLibrary;
+		file -import $fileName;
+	} 
+	
+setParent poseLibraryPanel;
+file -import $fileName; 
+}
+
+global proc autoImportLibraryPanel(string $charName)
+{
+string $fileDir= `workspace -q -rd`+ "Masquerade/Poses/";
+string $fileName = $fileDir + $charName + "_poseLibrary.mel";
+setParent poseLibraryPanel;
+file -import $fileName; 
+select -cl;	
+}
+	
+global proc newLibrary(string $charName)
+{
+string $poseChildren[] = `gridLayout -q -ca poseLibrary`;
+int $numButts = `size($poseChildren)`;
+if ($numButts == 0)
+	error "No buttons to clear";
+
+string $result = `confirmDialog
+	-title "New Library"
+	-ma "center"
+	-message ("Do you want to save " + $charName + "'s pose library\nbefore creating a new one?")
+	-button "Save"
+	-button "Don't Save"
+	-button "Cancel"
+	-defaultButton "Save"
+	-cancelButton "Cancel"
+	-dismissString "Cancel"`
+	;
+		
+	if ($result == "Save")
+		{
+			savePoseButtons $charName;
+			clearLibrary;			
+		}
+		
+	if ($result == "Don't Save")
+			clearLibrary;			
+}
+
+global proc newLibraryPanel()
+{
+global string $gCharName;
+int $sizeChar = `size($gCharName)`;
+
+if($sizeChar==0)
+	{
+		createMask;
+		error "Please create a control mask";
+	}
+	
+if($sizeChar>0)	
+	{
+		string $poseChildren[] = `gridLayout -q -ca poseLibraryPanel`;
+		int $numButts = `size($poseChildren)`;
+		if ($numButts == 0)
+			error "No buttons to clear";
+		
+		string $result = `confirmDialog
+			-title "New Library"
+			-ma "center"
+			-message ("Do you want to save " + $gCharName + "'s pose library\nbefore creating a new one?")
+			-button "Save"
+			-button "Don't Save"
+			-button "Cancel"
+			-defaultButton "Save"
+			-cancelButton "Cancel"
+			-dismissString "Cancel"`
+			;
+				
+			if ($result == "Save")
+				{
+					savePoseButtons $gCharName;
+					clearLibrary;			
+				}
+				
+			if ($result == "Don't Save")
+					clearLibrary;	
+	}		
+}
+			
+global proc clearLibrary()
+{
+int $poseWH = 87;
+
+if (`window -q -ex Masquerade`)
+	{
+		deleteUI poseLibrary;
+		setParent posCol;
+		gridLayout -cr 1 -aec 0 -numberOfColumns 3 -cellWidthHeight $poseWH ($poseWH+20) poseLibrary;
+	}
+
+deleteUI poseLibraryPanel;
+setParent posColPanel;
+gridLayout -cr 1 -aec 0 -numberOfColumns 3 -cellWidthHeight $poseWH ($poseWH+20) poseLibraryPanel;
+}
+
+global proc deleteLibraryPanel()
+{
+global string $gCharName;
+int $sizeChar = `size($gCharName)`;
+
+if($sizeChar==0)
+	error "Please load a contol mask";
+	
+if($sizeChar>0)	
+	{
+		string $result = `confirmDialog
+			-title "WARNING: Pose Library Delete"
+			-ma "center"
+			-message ("Are you sure you want to delete " + $gCharName + "'s pose library?\nWarning: This will delete " + $gCharName + "_poseLibrary.mel,\nand all the images associated with it.")
+			-button "Yes"
+			-button "No"
+			-defaultButton "Yes"
+			-cancelButton "No"
+			-dismissString "No"`
+			;
+				
+			if ($result == "Yes")
+				{
+					clearLibrary;
+					
+					//delete pose file
+					string $poseDir = `workspace -q -rd`+ "Masquerade/Poses/";
+					$fileExistsPose = `filetest -r ($poseDir + $gCharName + "_poseLibrary.mel")`;
+					if ( $fileExistsPose == 1 )
+						sysFile -delete ($poseDir + $gCharName + "_poseLibrary.mel");
+					
+					//delete pose images
+					string $poseImagesDir = `workspace -q -rd`+ "Masquerade/Images/" + $gCharName + "/";
+					$fileExistsPoseImages = `filetest -r $poseImagesDir`;
+					
+					if ( $fileExistsPoseImages == 1 )
+						{
+							string $images[] = `getFileList -folder $poseImagesDir`;
+							for ($eachImage in $images)
+								sysFile -delete ($poseImagesDir + "/" + $eachImage);
+						}
+						
+					print ("Pose library deleted : " + $poseDir + $gCharName + "_poseLibrary.mel");
+				}
+	}
+}
+
+global proc deleteLibrary (string $charName)
+{
+string $result = `confirmDialog
+	-title "WARNING: Pose Library Delete"
+	-ma "center"
+	-message ("Are you sure you want to delete " + $charName + "'s pose library?\nWarning: This will delete " + $charName + "_poseLibrary.mel,\nand all the images associated with it.")
+	-button "Yes"
+	-button "No"
+	-defaultButton "Yes"
+	-cancelButton "No"
+	-dismissString "No"`
+	;
+		
+	if ($result == "Yes")
+		{
+			clearLibrary;
+			
+			//delete pose file
+			string $poseDir = `workspace -q -rd`+ "Masquerade/Poses/";
+			$fileExistsPose = `filetest -r ($poseDir + $charName + "_poseLibrary.mel")`;
+			if ( $fileExistsPose == 1 )
+				sysFile -delete ($poseDir + $charName + "_poseLibrary.mel");
+			
+			//delete pose images
+			string $poseImagesDir = `workspace -q -rd`+ "Masquerade/Images/" + $charName + "/";
+			$fileExistsPoseImages = `filetest -r $poseImagesDir`;
+			
+			if ( $fileExistsPoseImages == 1 )
+				{
+					string $images[] = `getFileList -folder $poseImagesDir`;
+					for ($eachImage in $images)
+						sysFile -delete ($poseImagesDir + "/" + $eachImage);
+				}
+				
+			print ("Pose library deleted : " + $poseDir + $charName + "_poseLibrary.mel");
+		}
+}
+
+global proc poseEditLabel(string $poseName)
+{
+int $i;
+string $newPoseName;
+string $result = `promptDialog
+		-title "Rename Pose Button"
+		-message "New Name"
+		-button "Rename"
+		-button "Cancel"
+		-defaultButton "Rename"
+		-cancelButton "Cancel"
+		-dismissString "Cancel"`
+		;
+
+	if ($result == "Rename")
+		{
+			$newPoseName = ` promptDialog -query`;
+			
+			if(`iconTextButton -q -ex ($poseName + "PoseButton_Orig")`)
+				iconTextButton -edit -l $newPoseName ($poseName + "PoseButton_Orig");
+			if(`iconTextButton -q -ex ($poseName + "PoseButtonPanel")`)
+				iconTextButton -edit -l $newPoseName ($poseName + "PoseButtonPanel");
+								
+			for($i=0; $i<2; $i++)
+				if(`iconTextButton -q -ex ($poseName + "PoseButton")`)
+					iconTextButton -edit -l $newPoseName ($poseName + "PoseButton");	
+		}
+}
+
+global proc poseEditImage(string $poseName)
+{
+int $i;
+string $fileDir = `workspace -q -rd`+ "Masquerade/Images/";
+string $fileName = `fileDialog -dm ( $fileDir + "*.bmp" )`;
+
+if (`size($fileName)`==0)
+	error "Change image canceled";
+
+if(`iconTextButton -q -ex ($poseName + "PoseButton_Orig")`)
+	iconTextButton -edit -i1 $fileName ($poseName + "PoseButton_Orig");
+if(`iconTextButton -q -ex ($poseName + "PoseButtonPanel")`)
+	iconTextButton -edit -i1 $fileName ($poseName + "PoseButtonPanel");	
+				
+for($i=0; $i<2; $i++)
+	if(`iconTextButton -q -ex ($poseName + "PoseButton")`)
+		iconTextButton -edit -i1 $fileName ($poseName + "PoseButton");	
+}
+
+global proc poseEditCommand(string $buttName)
+{
+string $buttBD[];
+string $buttCheck[];
+string $poseCommand;
+
+string $buttCommand = `iconTextButton -q -c $buttName`;
+tokenize $buttCommand ";" $buttBD;
+tokenize $buttName "_" $buttCheck;
+int $sizeButt = `size($buttCheck)`;
+
+if ($sizeButt == 1)
+	for($each in $buttBD)
+		$poseCommand = $poseCommand + $each + ";\n";
+
+if ($sizeButt > 1)
+	for($each in $buttBD)
+		$poseCommand = $poseCommand + $each + ";";
+		
+if (`window -ex poseEditCommand`) 
+	deleteUI poseEditCommand;
+
+window -mb 1 -t "Edit Button Command" poseEditCommand;
+
+menu -l "Edit Pose";
+   menuItem -l "Set New Command" -ann "Set button command to that of the text below" -c ("editPose " + $buttName);
+   menuItem -l "Close" -ann " Exit pose creator" -c "deleteUI poseEditCommand";	
+
+paneLayout -cn "single";
+	scrollField -text $poseCommand poseTextEdit;
+		
+window -edit -wh 600 500 poseEditCommand;
+showWindow poseEditCommand;
+}
+
+global proc editPose(string $poseName)
+{
+int $i;
+string $poseEditText = `scrollField -q -text poseTextEdit`;
+
+if(`iconTextButton -q -ex ($poseName + "PoseButton_Orig")`)
+	iconTextButton -edit -c $poseEditText ($poseName + "PoseButton_Orig");
+if(`iconTextButton -q -ex ($poseName + "PoseButtonPanel")`)
+	iconTextButton -edit -c $poseEditText ($poseName + "PoseButtonPanel");
+					
+for($i=0; $i<2; $i++)
+	if(`iconTextButton -q -ex ($poseName + "PoseButton")`)
+		iconTextButton -edit -c $poseEditText ($poseName + "PoseButton");
+
+deleteUI poseEditCommand;	
+}
+
+global proc poseDelete(string $poseName)
+{
+int $i;
+if(`iconTextButton -q -ex ($poseName + "PoseButton_Orig")`)
+	deleteUI ($poseName + "PoseButton_Orig");
+if(`iconTextButton -q -ex ($poseName + "PoseButtonPanel")`)
+	deleteUI ($poseName + "PoseButtonPanel");	
+				
+for($i=0; $i<2; $i++)
+	if(`iconTextButton -q -ex ($poseName + "PoseButton")`)
+		deleteUI ($poseName + "PoseButton");	
+}
+				
+//play blast
+global proc maskBlast()
+{
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+float $endTime = `playbackOptions -q -max`;
+float $startTime = `playbackOptions -q -min`;
+$xM = `paneLayout -q -w maskFacePanel`;
+$yM = `paneLayout -q -h maskFacePanel`;
+
+//declar optionVar
+if (!`optionVar -exists "fileMaskblast"`)
+optionVar -stringValue "fileMaskblast" maskBlast;
+
+if (!`optionVar -exists "percentMaskblast"`)
+optionVar -floatValue "percentMaskblast" 100;
+
+if (!`optionVar -exists "stateXYMaskblast"`)
+optionVar -intValue "stateXYMaskblast" 1;
+
+if (!`optionVar -exists "viewerMaskblast"`)
+optionVar -stringValue "viewerMaskblast" movie;
+
+if (!`optionVar -exists "stateHUBMaskblast"`)
+optionVar -intValue "stateHUBMaskblast" 1;
+
+if (!`optionVar -exists "saveMaskblast"`)
+optionVar -intValue "saveMaskblast" 0;
+
+if (!`optionVar -exists "endTimeMaskblast"`)
+optionVar -floatValue "endTimeMaskblast" $endTime;
+
+if (!`optionVar -exists "startTimeMaskblast"`)
+optionVar -floatValue "startTimeMaskblast" $startTime;
+
+if (!`optionVar -exists "timeUsedMaskblast"`)
+optionVar -intValue "timeUsedMaskblast" 1;
+
+if (!`optionVar -exists "xMaskblast"`)
+optionVar -intValue "xMaskblast" 320;
+
+if (!`optionVar -exists "yMaskblast"`)
+optionVar -intValue "yMaskblast" 240;
+
+//-q optionVar
+string $fileName = `optionVar -q "fileMaskblast"`;
+float $scale = `optionVar -q "percentMaskblast"`/100;
+int $stateXY = `optionVar -q "stateXYMaskblast"`;
+string $viewer = `optionVar -q "viewerMaskblast"`;
+int $stateHUB = `optionVar -q "stateHUBMaskblast"`;
+int $stateSave = `optionVar -q "saveMaskblast"`;
+int $stateTime = `optionVar -q "timeUsedMaskblast"`;
+float $startTimeVar;
+float $endTimeVar;
+int $x;
+int $y;
+
+if ($stateTime == 1)
+	{
+		$startTimeVar = $startTime;
+		$endTimeVar = $endTime;
+	}
+	
+if ($stateTime == 0)
+	{
+		$startTimeVar = `optionVar -q "startTimeMaskblast"`;
+		$endTimeVar = `optionVar -q "endTimeMaskblast"`;
+	}
+	
+if ($stateXY == 1)
+	{
+		$x = $xM; 
+		$y = $yM;
+	}
+	
+if ($stateXY == 0)
+	{
+		if(`optionVar -q "xMaskblast"`>$xM)
+			$x = $xM;
+		else
+			$x = `optionVar -q "xMaskblast"`; 
+		
+		if(`optionVar -q "yMaskblast"`>$yM)
+			$y = $yM;
+		else
+			$y = `optionVar -q "yMaskblast"`; 
+	}
+
+float $stateTimeField;
+
+if ($stateTime == 0)
+	$stateTimeField = 1;
+if ($stateTime == 1)
+	$stateTimeField = 0;
+
+float $stateXYField;
+
+if ($stateXY == 0)
+	$stateXYField = 1;
+if ($stateXY == 1)
+	$stateXYField = 0;
+
+	if (`window -q -ex maskBlastUI`)
+		deleteUI maskBlastUI;
+	
+window -mb 1 -t "Mask Blast" maskBlastUI;
+	
+menu -l "Edit";
+	menuItem -l "Reset" -ann "Reset values" -c "resetMaskblast";
+	menuItem -l "Save Settings" -ann "Save current values" -c "saveMaskblast";
+
+string $maskBlastForm = `formLayout -numberOfDivisions 100 "Maskblast"`;
+string $mBlaskCol = `columnLayout -adj 1 topColumn`;
+		
+//Ornaments
+		text -align left -fn "boldLabelFont" "Ornaments:";
+		checkBox -v $stateHUB -al left -l "Show HUD's" maskHUB;
+		separator;
+		
+//Viewer
+		text -al left -fn "boldLabelFont" "Viewer:";
+		radioCollection viewers;
+			radioButton -al left -l "Movieplayer" "movie";
+			radioButton -al left -l "fcheck" "image";
+			radioButton -edit -sl $viewer; 
+		separator;
+		text -al left -fn "boldLabelFont" "Display Settings:"; 
+		checkBox -value $stateXY -al left -cc "checkXY" -l "Masquerade Panel Size" checkXY;
+		rowLayout -cl2 left center -nc 2 -cw2 35 100;
+			text "Width";
+			intField -min 0 -en $stateXYField -v $x -cc "maskSizeCheckX" xField;
+		setParent topColumn;
+		rowLayout -cl2 left center -nc 2 -cw2 35 100;
+			text "Height";
+			intField -min 0 -en $stateXYField -v $y -cc "maskSizeCheckY" yField;
+		setParent topColumn;
+		floatSliderGrp 
+			-min 0
+			-max 1
+			-cl3 left center center
+			-cat 1 right 5
+			-cw 1 35 
+			-cw 2 50
+			-cw 3 60
+			-adj 3
+			-v $scale
+			-l "Scale" 
+			-f 1
+			blastPercent
+			;
+		separator;
+		
+//Start/End
+		text -align left -fn "boldLabelFont" "Sart/End Time:";
+		checkBox -value $stateTime -al left -cc "checkTime" -l "Time Slider" checkTime;
+		setParent topColumn;
+		rowLayout -cl2 left center -nc 2 -cw2 30 100 ;
+			text "Start";
+			floatField -pre 1 -en $stateTimeField -v $startTimeVar startField;
+		setParent topColumn;
+		rowLayout -cl2 left center -nc 2 -cw2 30 100;
+			text "End";
+			floatField -pre 1 -en $stateTimeField -v $endTimeVar endField;
+		setParent topColumn;
+		separator;
+		
+//Output Settings
+		text -al left -fn "boldLabelFont" "Output Settings:";
+		checkBox -al left -v $stateSave -l "Save to File" -cc "checkSaveBlast" checkSaveBlast;
+		setParent topColumn;
+		rowLayout -cl2 left center -nc 2 -cw2 185 30;
+			textField -w 185 -en $stateSave -fileName $fileName saveBlastField;
+			iconTextButton -st "iconOnly" -w 26 -h 22 -ann "Save Maskblast" -i1 ($imagepath + "folder.bmp") -c "getFile";
+		setParent topColumn;
+		separator;
+		
+//buttons
+		button -l "Maskblast" -c "maskPlayblast";
+		button -l "Close" -c "deleteUI maskBlastUI";
+		
+	formLayout
+		-edit
+		-w 407
+	
+		-attachForm $mBlaskCol "left" 40
+		-attachForm $mBlaskCol "top" 5
+		-attachForm $mBlaskCol "bottom" 0
+		-attachForm $mBlaskCol "right" 40
+	
+		$maskBlastForm;
+	
+window -edit -wh 300 434 maskBlastUI;	 
+showWindow maskBlastUI;
+}
+
+global proc saveMaskblast()
+{
+int $x;
+int $y;
+float $startTime;
+float $endTime;
+string $fileName;
+
+//HUBs
+int $stateHUB = `checkBox -query -value maskHUB`;
+optionVar -intValue "stateHUBMaskblast" $stateHUB;
+
+//viewer
+string $viewer = `radioCollection -query -select viewers`;
+optionVar -stringValue "viewerMaskblast" $viewer;
+
+//display settings
+int $stateXY = `checkBox -query -value checkXY`;
+optionVar -intValue "stateXYMaskblast" $stateXY;
+$x = `intField -q -v xField`; 
+$y = `intField -q -v yField`;
+optionVar -intValue "xMaskblast" $x;
+optionVar -intValue "yMaskblast" $y;
+float $percent = `floatSliderGrp -query -value blastPercent` * 100; 
+optionVar -floatValue "percentMaskblast" $percent;
+
+//start/end
+int $stateTime = `checkBox -query -value checkTime`;
+optionVar -intValue "timeUsedMaskblast" $stateTime;
+$startTime = `floatField -q -v startField`; 
+$endTime = `floatField -q -v endField`;
+optionVar -floatValue "endTimeMaskblast" $endTime;
+optionVar -floatValue "startTimeMaskblast" $startTime;
+
+//file
+int $stateFile = `checkBox -query -value checkSaveBlast`;
+$fileName = `textField -q -text saveBlastField`; 
+optionVar -stringValue "fileMaskblast" $fileName;
+optionVar -intValue "saveMaskblast" $stateFile;	
+}
+
+global proc resetMaskblast()
+{
+float $endTime = `playbackOptions -q -max`;
+float $startTime = `playbackOptions -q -min`;
+
+optionVar -stringValue "fileMaskblast" maskBlast;
+optionVar -floatValue "percentMaskblast" 100;
+optionVar -intValue "stateXYMaskblast" 1;
+optionVar -stringValue "viewerMaskblast" movie;
+optionVar -intValue "stateHUBMaskblast" 1;
+optionVar -intValue "saveMaskblast" 0;
+optionVar -floatValue "endTimeMaskblast" $endTime;
+optionVar -floatValue "startTimeMaskblast" $startTime;
+optionVar -intValue "timeUsedMaskblast" 1;
+optionVar -intValue "xMaskblast" 320;
+optionVar -intValue "yMaskblast" 240;
+
+//HUBs
+checkBox -edit -v 1 maskHUB;
+
+//Viewer		
+radioButton -edit -select "movie"; 
+
+//size
+checkBox -edit -value 1 checkXY;
+intField -edit -en 0 -v 320 xField;
+intField -edit -en 0 -v 240 yField;
+floatSliderGrp -edit -v 1 blastPercent;	
+	
+//Start/End
+checkBox -edit -value 1 checkTime;
+floatField -edit -en 0 -v $startTime startField;
+floatField -edit -en 0 -v $endTime endField;
+		
+//Output Settings
+checkBox -edit -v 0 checkSaveBlast;
+textField -edit -en 0 -fileName "maskBlast" saveBlastField;
+}
+
+global proc maskSizeCheckX()
+{
+int $xM = `paneLayout -q -w maskFacePanel`;
+int $x = `intField -q -v xField`;
+
+if ($x>$xM)
+	{
+		intField -edit -v $xM xField;
+		optionVar -intValue "xMaskblast" $xM;
+		error "Value grater than camera view size";	
+	}
+else
+	optionVar -intValue "xMaskblast" $x;	
+}
+
+global proc maskSizeCheckY()
+{
+int $yM = `paneLayout -q -h maskFacePanel`;
+int $y = `intField -q -v yField`;
+
+if ($y>$yM)
+	{
+		intField -edit -v $yM yField;
+		optionVar -intValue "yMaskblast" $yM;
+		error "Value grater than camera view size";	
+	}
+else
+	optionVar -intValue "yMaskblast" $y;	
+}
+
+global proc checkXY()
+{
+if (!`optionVar -exists "xMaskblast"`)
+optionVar -intValue "xMaskblast" 320;
+
+if (!`optionVar -exists "yMaskblast"`)
+optionVar -intValue "yMaskblast" 240;
+
+int $x = `optionVar -q "xMaskblast"`;
+int $y = `optionVar -q "yMaskblast"`;
+
+$xM = `paneLayout -q -w maskFacePanel`;
+$yM = `paneLayout -q -h maskFacePanel`;
+
+int $state = `checkBox -query -value checkXY`;
+ 
+if ($state == 1)
+	{
+		intField -edit -en 0 -v $xM xField; 
+		intField -edit -en 0 -v $yM yField;
+	}
+	
+if ($state == 0)
+	{
+		if($x>$xM)
+			intField -edit -en 1 -v $xM xField;
+		else
+			intField -edit -en 1 -v $x xField; 
+		
+		if($y>$yM)
+			intField -edit -en 1 -v $yM yField;
+		else
+			intField -edit -en 1 -v $y yField;
+	}
+}
+
+global proc checkTime()
+{
+float $endTime = `playbackOptions -q -max`;
+float $startTime = `playbackOptions -q -min`;
+int $state = `checkBox -query -value checkTime`;
+
+if (!`optionVar -exists "endTimeMaskblast"`)
+optionVar -floatValue "endTimeMaskblast" $endTime;
+
+if (!`optionVar -exists "startTimeMaskblast"`)
+optionVar -floatValue "startTimeMaskblast" $startTime;
+
+float $startTimeVar = `optionVar -q "startTimeMaskblast"`;
+float $endTimeVar = `optionVar -q "endTimeMaskblast"`;
+
+if ($state == 1)
+	{
+		floatField -edit -pre 1 -en 0 -v $startTime startField; 
+		floatField -edit -pre 1 -en 0 -v $endTime endField;
+	}
+	
+if ($state == 0)
+	{
+		floatField -edit -pre 1 -en 1 -v $startTimeVar startField; 
+		floatField -edit -pre 1 -en 1 -v $endTimeVar endField;
+	}
+}
+
+global proc checkSaveBlast()
+{
+int $state = `checkBox -query -value checkSaveBlast`;
+
+if ($state == 1)
+		textField -edit -en 1 saveBlastField;
+ 
+if ($state == 0)
+		textField -edit -en 0 saveBlastField; 
+}
+
+global proc int maskblastUpdateMovieName( string $filename, string $fileType )
+{
+textField -edit -en 1 -fileName $filename saveBlastField;
+checkBox -edit -al left -l "Save to File" -v 1 -cc "checkSaveBlast" checkSaveBlast;
+return 1;
+}
+
+global proc getFile()
+{
+fileBrowser("maskblastUpdateMovieName","Accept","",1);
+}
+
+global proc maskPlayblast()
+{
+int $x;
+int $y;
+float $startTime;
+float $endTime;
+string $fileName;
+string $delFile;
+//HUBS on/off
+int $stateHUB = `checkBox -query -value maskHUB`;
+optionVar -intValue "stateHUBMaskblast" $stateHUB;
+ 
+//viewer
+string $viewer = `radioCollection -query -select viewers`;
+optionVar -stringValue "viewerMaskblast" $viewer;
+
+//display settings
+int $stateXY = `checkBox -query -value checkXY`;
+optionVar -intValue "stateXYMaskblast" $stateXY;
+if ($stateXY == 0)
+	{
+		$x = `intField -q -v xField`; 
+		$y = `intField -q -v yField`;
+	}
+	
+if ($stateXY == 1)
+	{
+		$x = `paneLayout -q -w maskFacePanel`; 
+		$y = `paneLayout -q -h maskFacePanel`;
+	}
+	
+optionVar -intValue "xMaskblast" $x;
+optionVar -intValue "yMaskblast" $y;
+float $percent = `floatSliderGrp -query -value blastPercent` * 100; 
+optionVar -floatValue "percentMaskblast" $percent;
+
+//start/end
+int $stateTime = `checkBox -query -value checkTime`;
+optionVar -intValue "timeUsedMaskblast" $stateTime;
+
+if ($stateTime == 0)
+	{
+		$startTime = `floatField -q -v startField`; 
+		$endTime = `floatField -q -v endField`;
+	}
+	
+if ($stateTime == 1)
+	{
+		$endTime = `playbackOptions -q -max`;
+		$startTime = `playbackOptions -q -min`;
+	}
+	
+optionVar -floatValue "endTimeMaskblast" $endTime;
+optionVar -floatValue "startTimeMaskblast" $startTime;
+
+//file
+int $stateFile = `checkBox -query -value checkSaveBlast`;
+
+if ($stateFile == 1)
+		$fileName = `textField -q -text saveBlastField`; 
+
+if ($stateFile == 0)
+		$fileName = ( `internalVar -userTmpDir` + "maskBlast");
+
+optionVar -stringValue "fileMaskblast" $fileName;
+optionVar -intValue "saveMaskblast" $stateFile;
+
+if ($viewer == "movie")
+	$delFile = $fileName + ".avi";
+
+if ($viewer == "image")
+	$delFile = $fileName;
+
+//check if file exists
+int $fileExists = `filetest -r $fileName`;
+		
+if ($fileExists = 1)
+	{
+	string $result = `confirmDialog
+		-title "Over-write Button"
+		-message ($fileName + " already exists.\nDo you wish to over-write it?")
+		-ma center
+		-button "Yes"
+		-button "No"
+		-defaultButton "Yes"
+		-cancelButton "No"
+		-dismissString "No"`
+		;
+		
+		if ($result == "Yes")
+			{
+				if (`window -q -ex maskBlastUI`)
+					deleteUI maskBlastUI;
+				
+				modelEditor -e -av maskFaceCam; 
+				sysFile -delete ($delFile);
+				playblast -format $viewer -orn $stateHUB -clearCache 1 -widthHeight $x $y -p $percent -st $startTime -et $endTime -filename $fileName;
+			}
+	}
+	
+if ($fileExists = 0)
+	{
+		if (`window -q -ex maskBlastUI`)
+			deleteUI maskBlastUI;
+		
+		modelEditor -e -av maskFaceCam; 
+		playblast -format $viewer -orn $stateHUB -clearCache 1 -widthHeight $x $y -p $percent -st $startTime -et $endTime -filename $fileName;			 
+	}
+}
+
+//sound
+global proc soundManager()
+{	
+if ( `window -exists soundManagerUI`)
+	deleteUI soundManagerUI;	
+
+string $sounds[] =`ls -type "audio"`;
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+				
+window -tlb 1 -t "Sound Manager" soundManagerUI;
+
+string $soundForm = `formLayout -numberOfDivisions 100`;
+
+string $picControl = `columnLayout -bgc 0.314 0.059 0.059`;
+picture -en 0 -i ($imagepath + "soundMan.bmp");
+setParent..;
+
+string $attrControl = `paneLayout -cn single`;
+textScrollList -dkc "deleteSound" -ams false -h 150 soundList;
+
+for ($each in $sounds)
+	textScrollList -e -numberOfRows 12 -dcc ("showEditor " + $each ) -append $each soundList;
+
+setParent..;
+
+string $buttonControl = `columnLayout -adj 1`;
+	button -w 145 -h 30 -l "Add Sound" -c "addSound";
+	button -w 145 -h 30 -l "Display Sound" -c "displayMaskSound";
+	button -w 145 -h 30 -l "Delete Sound" -c "deleteSound";
+	button -w 145 -h 30 -l "Close" -c "deleteUI soundManagerUI";
+
+formLayout
+	-edit
+
+	-attachForm $picControl "left" 0
+	-attachForm $picControl "top" 0
+	-attachControl $picControl bottom 2 $attrControl
+	-attachForm $picControl "right" 0
+	
+	-attachForm $attrControl "left" 0
+	-attachForm $attrControl "top" 70
+	-attachForm $attrControl "bottom" 122
+	-attachForm $attrControl "right" 0
+
+	-attachForm $buttonControl "left" 0
+	-attachForm $buttonControl "bottom" 0
+	-attachControl $buttonControl top 2 $attrControl
+	-attachForm $buttonControl "right" 0
+	
+	$soundForm;
+		
+window -edit -wh 158 384 soundManagerUI;	
+showWindow soundManagerUI;	
+}
+
+global proc addSound () 
+{	
+string $dirPath = ( `workspace -q -rd` + "sound/" );
+string $soundFile = `fileDialog -dm ( $dirPath + "*.wav;*.aif;*.aiff" )`;
+
+if(`size($soundFile)` == 0)
+	error "Import sound canceled";
+
+sound -f $soundFile;
+soundManager;	
+}
+
+global proc displayMaskSound()
+{
+source updateSoundMenu.mel;
+
+string $sound[] = `textScrollList -q -si soundList`;
+setSoundDisplay $sound[0] 1;
+}
+
+global proc deleteSound ()
+{
+string $sound[] = `textScrollList -q -si soundList`;
+string $result = `confirmDialog
+-title "Sound Delete"
+-message ("Are you sure you want to delete \"" + $sound[0] + "\" your sound file?")
+-button "Yes"
+-button "No"
+-defaultButton "Yes"
+-cancelButton "No"
+-dismissString "No"`
+;
+
+if ($result == "Yes")
+	{
+		delete $sound;
+		soundManager;
+	}
+}
+
+//key button actions
+global proc resetMask (string $curve)
+{
+string $attr[] = `listAttr -k $curve`;
+
+for ($each in $attr)
+	{
+		float $defult = `addAttr -q -dv ($curve + "." + $each)`;
+		setAttr ($curve + "." + $each) $defult; 
+	}
+}
+
+global proc resetMaskAll (string $charName)
+{
+string $curve[];
+$curve[0] = $charName + "_LeftEyeBrowControl";
+$curve[1] = $charName + "_LeftEyeControl";
+$curve[2] = $charName + "_MouthControl";
+
+for ($eachCurve in $curve)
+	{
+		string $attr[] = `listAttr -k $eachCurve`;
+		
+		for ($each in $attr)
+			{
+				float $defult = `addAttr -q -dv ($eachCurve + "." + $each)`;
+				setAttr ($eachCurve + "." + $each) $defult; 
+			}
+	}
+}
+
+global proc resetMaskAllPanel ()
+{
+global string $gCharName;
+int $sizeName = `size($gCharName)`;
+
+if ($sizeName > 0)
+		{
+		$curve[0] = $gCharName + "_LeftEyeBrowControl";
+		$curve[1] = $gCharName + "_LeftEyeControl";
+		$curve[2] = $gCharName + "_MouthControl";
+		
+		for ($eachCurve in $curve)
+			{
+				string $attr[] = `listAttr -k $eachCurve`;
+				
+				for ($each in $attr)
+					{
+						float $defult = `addAttr -q -dv ($eachCurve + "." + $each)`;
+						setAttr ($eachCurve + "." + $each) $defult; 
+					}
+			}
+	}
+}
+
+global proc removeKeys (string $curve)
+{
+cutKey -cl $curve;
+keyButtonChange;
+}
+
+global proc removeKeysAll (string $charName)
+{
+string $curve[];
+$curve[0] = $charName + "_LeftEyeBrowControl";
+$curve[1] = $charName + "_LeftEyeControl";
+$curve[2] = $charName + "_MouthControl";
+
+for ($eachCurve in $curve)
+	cutKey -cl $eachCurve;
+	
+keyButtonChange;		
+}
+
+global proc removeKeysAllPanel ()
+{
+global string $gCharName;
+int $sizeName = `size($gCharName)`;
+
+if ($sizeName > 0)
+		{
+		$curve[0] = $gCharName + "_LeftEyeBrowControl";
+		$curve[1] = $gCharName + "_LeftEyeControl";
+		$curve[2] = $gCharName + "_MouthControl";
+		
+		for ($eachCurve in $curve)
+			cutKey -cl $eachCurve;
+		keyButtonChange;
+	}
+}
+
+global proc keyMask (string $curve)
+{
+string $attr[] = `listAttr -k $curve`;
+
+for ( $each in $attr )
+	setKeyframe ($curve + "." + $each);
+
+keyButtonChange;
+}
+
+global proc keyMaskAll (string $charName)
+{
+string $curve[];
+$curve[0] = $charName + "_LeftEyeBrowControl";
+$curve[1] = $charName + "_LeftEyeControl";
+$curve[2] = $charName + "_MouthControl";
+
+for ($eachCurve in $curve)
+	{
+		string $attr[] = `listAttr -k $eachCurve`;
+		
+		for ($each in $attr)
+			setKeyframe ($eachCurve + "." + $each);
+	}
+		
+keyButtonChange;
+}
+
+global proc keyMaskAllPanel()
+{
+global string $gCharName;
+int $sizeName = `size($gCharName)`;
+
+if ($sizeName > 0)
+		{
+		$curve[0] = $gCharName + "_LeftEyeBrowControl";
+		$curve[1] = $gCharName + "_LeftEyeControl";
+		$curve[2] = $gCharName + "_MouthControl";
+		
+		for ($eachCurve in $curve)
+			{
+				string $attr[] = `listAttr -k $eachCurve`;
+				
+				for ($each in $attr)
+					setKeyframe ($eachCurve + "." + $each);
+			}	
+		keyButtonChange;
+	}
+}
+
+//load char
+global proc switchCharWin (int $c)
+{	
+if ( `window -exists switchCharUI`)
+	deleteUI switchCharUI;	
+
+string $LSparents[] =`ls -tr "*_MaskControl"`;
+int $numChars = `size($LSparents)`;
+
+if ($numChars==0)
+	{
+		maskCreator;
+		error "Please create a control mask";	
+	}
+		
+window -tlb 1 -t "Characters" switchCharUI;
+
+string $switchCharForm = `formLayout -numberOfDivisions 100`;
+
+string $charControl = `paneLayout -cn single`;
+	textScrollList -numberOfRows 12 -ams 0 -h 200 listChar;
+	
+	for ($each in $LSparents)
+		{
+		    string $charName[];
+		    tokenize $each "_" $charName;
+			
+			textScrollList -e -dcc ("switchChar " + $c + "; deleteUI switchCharUI") -append $charName[0] listChar;
+		}
+		
+setParent..;
+
+string $buttonControl = `columnLayout -adj 1`;
+	button -w 145 -h 30 -l "OK" -c ("switchChar " + $c + "; deleteUI switchCharUI");
+	button -w 145 -h 30 -l "Close" -c "deleteUI switchCharUI";
+
+formLayout
+	-edit
+	
+	-attachForm $charControl "left" 0
+	-attachForm $charControl "top" 0
+	-attachForm $charControl "bottom" 62
+	-attachForm $charControl "right" 0
+
+	-attachForm $buttonControl "left" 0
+	-attachForm $buttonControl "bottom" 0
+	-attachControl $buttonControl top 2 $charControl
+	-attachForm $buttonControl "right" 0
+	
+	$switchCharForm;
+		
+window -edit -wh 158 280 switchCharUI;	
+showWindow switchCharUI;	
+}
+
+global proc switchChar(int $c)
+{
+string $charName[] = `textScrollList -q -si listChar`;
+
+switch ($c)
+	{
+		case 0:
+			MasqueradeUI $charName[0];
+		break;	
+		
+		case 1:
+			maskToShelf $charName[0];
+		break;
+				
+		case 2:
+			switchMaskPanel $charName[0];
+		break;
+	}
+}
+
+global proc maskTimeConverter()
+{
+int $currentFR = 0;
+int $maxF;
+string $timeFPS = `currentUnit -q -t`;
+
+switch ($timeFPS)
+	{
+		case "game":
+			{
+				$currentFR = 1;	
+				$maxF = 15;
+			}
+			break;
+		case "film":
+			{
+				$currentFR = 2;	
+				$maxF = 24;
+			}	
+			break;		
+		case "pal":
+			{
+				$currentFR = 3;	
+				$maxF = 25;
+			}
+			break;
+		case "ntsc":
+			{
+				$currentFR = 4;	
+				$maxF = 30;
+			}
+			break;
+		case "show":
+			{
+				$currentFR = 5;	
+				$maxF = 48;
+			}
+			break;
+		case "palf":
+			{
+				$currentFR = 6;	
+				$maxF = 50;
+			}
+			break;
+		case "ntscf":
+			{
+				$currentFR = 7;	
+				$maxF = 60;
+			}
+			break;
+	}
+		
+if ($currentFR == 0)
+	{
+		$currentFR = 4;	
+		$maxF = 30;		
+	}								
+
+if (`window -q -ex maskTimeCon`)
+	deleteUI maskTimeCon;
+
+window -mb 1 -s 0 -tlb 1 -t "Frame/Time Converter" maskTimeCon;
+columnLayout;
+
+optionMenu -l "Frame Rate" -ann "Change fps used in convertion" -cc "setMaxFrame" conFPS;
+	menuItem -l "game: 15 fps  ";
+	menuItem -l "film: 24 fps  "; 
+	menuItem -l "pal: 25 fps  "; 
+	menuItem -l "ntsc: 30 fps  "; 
+	menuItem -l "show: 48 fps  "; 
+	menuItem -l "palf: 50 fps  "; 
+	menuItem -l "ntscf: 60 fps  ";
+		optionMenu -edit -sl $currentFR conFPS;
+		
+rowLayout -nc 5 -cw5 50 4 50 4 50;
+	intField -min 0 -ec "toFrames" -ann "Minuets" tcMin;
+	text -fn "boldLabelFont" ":";
+	intField -min 0 -max 60 -ec "toFrames" -ann "Seconds" tcSec;
+	text -fn "boldLabelFont" ".";
+	intField -min 0 -max $maxF -ec "toFrames" -ann "Frames" tcFrm;
+	setParent..;
+	
+intField -w 158 -ec "toTime" -ann "Absolute Frames" tcAbtFrames;
+	popupMenu;
+		menuItem -l "Get current frame" -ann "Set end frame as value" -c "setFieldCUR";
+		menuItem -l "Get end frame" -ann "Set end frame as value" -c "setFieldAET";
+		menuItem -l "Get playback end frame" -ann "Set playback end frame as value" -c "setFieldMAX";
+		menuItem -d 1;
+		menuItem -l "Set end frame" -ann "Set current value as end frame" -c "setEndFrame";
+		
+int $w = 79;
+rowLayout -cl2 center center -nc 2 -cw2 $w $w;
+	button -h 20 -w $w -ann "Convert time to frames" -l "Frames" -c "toFrames";
+	button -h 20 -w $w -ann "Convert frames to time" -l "Time" -c "toTime";
+setParent..;
+
+button -h 18 -w 158 -ann "Set all fields to zero" -l "Reset" -c "resetTimeCon";
+button -h 18 -w 158 -ann "Close" -l "Close" -c "deleteUI maskTimeCon";
+
+window -edit -wh 164 146 maskTimeCon;
+showWindow;
+}
+
+global proc setEndFrame()
+{
+int $startTime = `playbackOptions -q -ast`;
+int $endTime = `playbackOptions -q -aet`;
+int $endPlay = `playbackOptions -q -max`;
+int $endFrame = `intField -q -v tcAbtFrames`;
+
+if ($endFrame <= $startTime)
+	error "Value is less then or equal to start time";
+
+if ($endFrame > $startTime)
+	{
+		if ($endTime > $endPlay)
+			playbackOptions -aet $endFrame;
+		
+		if ($endTime == $endPlay)
+			{
+				playbackOptions -aet $endFrame;
+				playbackOptions -max $endFrame;
+			}
+	}
+}
+global proc setFieldAET()
+{
+int $endTime = `playbackOptions -q -aet`;
+intField -edit -v $endTime tcAbtFrames;
+}
+
+global proc setFieldMAX()
+{
+int $endTime = `playbackOptions -q -max`;
+intField -edit -v $endTime tcAbtFrames;
+}
+
+global proc setFieldCUR()
+{
+int $currentTime = `currentTime -q`;
+intField -edit -v $currentTime tcAbtFrames;
+}
+
+global proc resetTimeCon()
+{
+intField -edit -v 0 tcFrm;
+intField -edit -v 0 tcSec;
+intField -edit -v 0 tcMin;
+intField -edit -v 0 tcAbtFrames;	
+}
+
+global proc setMaxFrame()
+{
+int $FRQ = `optionMenu -q -sl conFPS`;
+
+switch ($FRQ)
+	{
+		case 1:
+				$maxF = 15;
+			break;
+			
+		case 2:
+				$maxF = 24;
+			break;
+					
+		case 3:
+				$maxF = 25;
+			break;
+			
+		case 4:
+				$maxF = 30;
+			break;
+			
+		case 5:
+				$maxF = 48;
+			break;
+			
+		case 6:
+				$maxF = 50;
+			break;
+			
+		case 7:
+				$maxF = 60;
+			break;
+			
+	}
+	
+intField -edit -max $maxF tcFrm;	
+}
+
+global proc toFrames()
+{
+int $FR;
+int $min = `intField -q -v tcMin`;
+int $sec = `intField -q -v tcSec`;
+int $frm = `intField -q -v tcFrm`;	
+int $FRQ = `optionMenu -q -sl conFPS`;
+
+switch ($FRQ)
+	{
+		case 1:
+				$FR = 15;
+			break;
+			
+		case 2:
+				$FR = 24;
+			break;
+					
+		case 3:
+				$FR = 25;
+			break;
+			
+		case 4:
+				$FR = 30;
+			break;
+			
+		case 5:
+				$FR = 48;
+			break;
+			
+		case 6:
+				$FR = 50;
+			break;
+			
+		case 7:
+				$FR = 60;
+			break;
+			
+	}
+
+int $mTs = ($min*60)*$FR;
+int $sTf = $sec*$FR;
+int $totalF = $mTs+$sTf+$frm;
+
+intField -edit -v $totalF tcAbtFrames;
+print ("Absolute Frames : " + $totalF + "\n");
+}
+
+global proc toTime()
+{
+float $FR;
+float $NS;
+float $NM;
+string $SBD[];
+string $MBD[];
+string $MSBD[];
+float $adFrm = `intField -q -v tcAbtFrames`;	
+int $FRQ = `optionMenu -q -sl conFPS`;
+
+switch ($FRQ)
+	{
+		case 1:
+				$FR = 15;
+			break;
+			
+		case 2:
+				$FR = 24;
+			break;
+					
+		case 3:
+				$FR = 25;
+			break;
+			
+		case 4:
+				$FR = 30;
+			break;
+			
+		case 5:
+				$FR = 48;
+			break;
+			
+		case 6:
+				$FR = 50;
+			break;
+			
+		case 7:
+				$FR = 60;
+			break;
+			
+	}
+
+if ($adFrm <=$FR)
+	{
+		intField -edit -v $adFrm tcFrm;
+		intField -edit -v 0 tcSec;
+		intField -edit -v 0 tcMin;
+	}
+
+if ($adFrm >$FR)
+	{
+		$NS = $adFrm/$FR;
+		if ($NS > 60)
+			{
+				$NM = $NS/60;
+				string $MinS = $NM;
+				tokenize $MinS "." $MBD;
+				int $sizeM = `size($MBD)`;
+					if ($sizeM == 2)
+						{
+							int $MtM = $MBD[0];
+							string $MBDD = "0." + $MBD[1];
+							float $MBDF = $MBDD;
+							float $SCek = $MBDF*60;
+							string $STok = $SCek;
+							tokenize $STok "." $MSBD;
+							int $sizeMS = `size($MSBD)`;
+								if ($sizeMS == 2)
+									{
+										int $MtSD = $MSBD[0];
+										string $MSBDD = "0." + $MSBD[1];
+										float $MSBDDF = $MSBDD;
+										float $MtFF =  $MSBDDF*$FR;
+										int $MtF = $MtFF;
+										intField -edit -v $MtM tcMin;
+										intField -edit -v $MtSD tcSec;
+										intField -edit -v $MtF tcFrm;										
+									}
+								else
+									{
+										int $MtS = $MBD[1];
+										intField -edit -v $MtM tcMin;
+										intField -edit -v $MtS tcSec;
+										intField -edit -v 0 tcFrm;
+									}
+						}
+					else
+						{
+							intField -edit -v $NM tcMin;
+							intField -edit -v 0 tcSec;
+							intField -edit -v 0 tcFrm;
+						}
+			}
+		else
+			{
+				string $SecS = $NS;
+				tokenize $SecS "." $SBD;
+				int $sizeS = `size($SBD)`;
+					if ($sizeS == 2)
+						{
+							int $StS = $SBD[0];
+							string $SBDD = "0." + $SBD[1];
+							float $SBDDF = $SBDD;
+							float $MtFF =  $SBDDF*$FR;
+							int $StF = $MtFF;
+							intField -edit -v 0 tcMin;
+							intField -edit -v $StS tcSec;
+							intField -edit -v $StF tcFrm;
+						}
+					else
+						{
+							intField -edit -v 0 tcMin;
+							intField -edit -v $NS tcSec;
+							intField -edit -v 0 tcFrm;
+						}
+			}
+	}
+	
+int $min = `intField -q -v tcMin`;
+int $sec = `intField -q -v tcSec`;
+int $frm = `intField -q -v tcFrm`;
+
+print ("Time : " + $min + ":" + $sec + "." + $frm + "\n");
+}
+
+//about
+global proc aboutMask()
+{
+if ( `window -exists aboutMaskUI`)
+	deleteUI aboutMaskUI;
+
+int $w = 90;
+string $imagepath = `internalVar -ubd`+"Masquerade_icons/";
+
+window -tb 0 -s 0 aboutMaskUI;
+frameLayout -lv 0;
+	columnLayout -adj 1;
+		picture -en 0 -i ($imagepath + "startScreen.bmp");
+		text -al center "\nMasquerade v1.0 Beta By David Keegan\nCopyright David Keegan 2004\nwww.keegan3d.com";
+		separator -st "none" -h 2; 
+		rowLayout -cl2 left center -nc 2 -cw2 80 $w;
+			text " ";
+			button -w $w -l "Close" -c "deleteUI aboutMaskUI";
+			
+window -edit -wh 256 205 aboutMaskUI;
+showWindow aboutMaskUI;
+
+print "Masquerade v1.0 Beta By David Keegan\n";			
+}
+
+//HUD
+global proc frameCheckHUB(string $menuItem)
+{
+int $state = `menuItem -query -cb ("maskFrameCheck" + $menuItem)`;
+
+if ($state == 0)
+		if (`headsUpDisplay -q -ex showFrameHUB`)
+			headsUpDisplay -rem showFrameHUB;
+	
+if ($state == 1)
+		maskFrameCheck;
+
+if (`menuItem -q -ex maskFrameCheckMaya`)
+	menuItem -edit -cb $state maskFrameCheckMaya;
+		
+if (`window -q -ex Masquerade`)
+	{
+		menuItem -edit -cb $state maskFrameCheckMask;
+		menuItem -edit -cb $state maskFrameCheckMaskHUB;
+		menuItem -edit -cb $state maskFrameCheckMaskTime;
+	}
+		
+if (`menuItem -q -ex maskFrameCheckPanel`)
+	menuItem -edit -cb $state maskFrameCheckPanel;
+
+optionVar -intValue "maskFrameHUB" $state;
+}
+	
+global proc hideHUB()
+{
+string $HUD[] = `headsUpDisplay -lh`;
+for ($each in $HUD)
+	headsUpDisplay -edit -vis 0 $each;
+		
+menuItem -edit -cb 0 objectDetailsItem;
+menuItem -edit -cb 0 polyCountItem;
+menuItem -edit -cb 0 animationDetailsItem;
+menuItem -edit -cb 0 frameRateItem;
+menuItem -edit -cb 0 cameraNamesItem;
+menuItem -edit -cb 0 viewAxisItem;
+menuItem -edit -cb 0 originAxesItem;
+
+if (`menuItem -q -ex maskFrameCheckMaya`)
+	menuItem -edit -cb 0 maskFrameCheckMaya;
+
+if (`window -q -ex Masquerade`)
+	{
+		menuItem -edit -cb 0 maskFrameCheckMask;
+		menuItem -edit -cb 0 maskFrameCheckMaskHUB;
+		menuItem -edit -cb 0 maskFrameCheckMaskTime;
+	}
+
+if (`menuItem -q -ex maskFrameCheckPanel`)
+	menuItem -edit -cb 0 maskFrameCheckPanel;
+
+optionVar -intValue "objectDetailsVisibility" 0;
+optionVar -intValue "polyCountVisibility" 0;
+optionVar -intValue "animationDetailsVisibility" 0;
+optionVar -intValue "frameRateVisibility" 0;
+optionVar -intValue "maskFrameHUB" 0;
+optionVar -intValue "cameraNamesVisibility" 0;
+optionVar -intValue "viewAxisVisibility" 0;
+global int $gToggleOriginAxis = 0;	
+}
+	
+global proc maskFrameCheck()
+{
+if (`headsUpDisplay -q -ex showFrameHUB`)
+	headsUpDisplay -rem showFrameHUB;
+
+headsUpDisplay 
+	-s 9 
+	-b 4
+	-bs "small"
+	-ba "right"
+	-c "currentTime -q"
+	-dfs "large"
+	-event "timeChanged"
+	showFrameHUB
+	;	
+}
+
+global proc maskInfoHUB(string $menuName)
+{
+int $state = `menuItem -q -cb ("maskInfoHUB" + $menuName)`;
+
+if($state ==1)
+	maskInfoHUBCreate;
+if($state ==0)
+	maskInfoHUBremove;
+}
+
+global proc maskInfoHUBCreate()
+{
+int $autoState = `menuItem -query -cb autoMaskCheck`;
+string $autoStateS;
+		
+if ($autoState ==0)
+	$autoStateS = "Off";
+
+if ($autoState ==1)
+	$autoStateS = "On";
+	
+//auto
+if (`headsUpDisplay -q -ex maskInfoAutoHUB`)
+	headsUpDisplay -rem maskInfoAutoHUB;
+
+headsUpDisplay 
+	-s 1 
+	-b 0
+	-l ("Auto Launch Masquerde : " + $autoStateS)
+	maskInfoAutoHUB;
+
+menuItem -edit -cb 1 maskInfoHUBMaya;
+
+if (`menuItem -q -ex maskInfoHUBMask`)
+	menuItem -edit -cb 1 maskInfoHUBMask;
+
+if (`menuItem -q -ex maskInfoHUBPanel`)
+	menuItem -edit -cb 1 maskInfoHUBPanel;
+
+optionVar -intValue "maskInfoHUB" 1;
+}
+	
+global proc maskInfoHUBremove()
+{
+if (`headsUpDisplay -q -ex maskInfoAutoHUB`)
+	headsUpDisplay -rem maskInfoAutoHUB;
+
+menuItem -edit -cb 0 maskInfoHUBMaya;
+
+if (`menuItem -q -ex maskInfoHUBMask`)
+	menuItem -edit -cb 0 maskInfoHUBMask;
+
+if (`menuItem -q -ex maskInfoHUBPanel`)
+	menuItem -edit -cb 0 maskInfoHUBPanel;
+
+optionVar -intValue "maskInfoHUB" 0;
+}
+
+//maya menu
+global proc maskRenameAttrWin()
+{
+if (!`optionVar -exists "maskRenamer"`)
+optionVar -stringValue "maskRenamer" prefix;
+string $preSuf = `optionVar -q "maskRenamer"`;
+
+if(`window -q -ex reNameAttr`)
+	deleteUI reNameAttr;
+
+int $w = 107;
+int $w2 = 82;
+
+window -t "Rename Attributes" -s 0 -tlb 1 reNameAttr;
+	columnLayout -adj 1;
+		rowLayout -cl2 center center -nc 2 -cw2 $w $w;
+		
+			rowLayout -cl2 center center -nc 2 -cw2 22 100;
+				text "Prfix";
+				textField -w 77 Prfix;
+			setParent..;
+			
+			rowLayout -cl2 center center -nc 2 -cw2 28 100;
+				text "Suffix";
+				textField -w 77 Suffix;
+			setParent..;
+			
+	setParent..;	
+separator; 		
+
+		rowLayout -cl2 center center -nc 2 -cw2 150 40;
+			button -h 30 -w 151 -l "Rename Attributes" -c "maskRenameAttr";
+			button -h 30 -w 61 -l "Close" -c "deleteUI reNameAttr";
+			
+showWindow reNameAttr;
+window -edit -wh 218 80 reNameAttr;
+}
+
+global proc maskRenameAttr()
+{
+string $sel[] = `ls -sl`;
+string $obj[] = `channelBox -q -mol mainChannelBox`;
+if ( `size $obj` == 0 )
+	error "Please select an object and attributes to add to the list";
+
+string $attr[] = `channelBox -q -sma mainChannelBox`;
+if ( `size $attr` == 0 )
+	error "Please select attributes to add to the list";
+
+string $pre = `textField -q -text Prfix`;
+string $suf = `textField -q -text Suffix`;
+
+for($eachAttr in $attr)
+	renameAttr ($obj[0] + "." + $eachAttr) ($pre + $eachAttr + $suf);
+
+select -r $sel;
+}
+
+global proc attrDelete ()
+{
+string $obj[] = `channelBox -q -mol mainChannelBox`;
+if (`size($obj)`==0)
+	error "No object selected";
+
+string $attr[] = `channelBox -q -sma mainChannelBox`;
+if (`size($attr)`==0)
+	error "No attributes selected";
+
+for ($each in $attr)
+	{
+		setAttr -lock 1 ($obj[0] + "." + $each);
+		setAttr -e -keyable 0 ($obj[0] + "." + $each);
+	}
+}
+
+global proc maskDeleteWin()
+{
+string $sel[] = `ls -sl`;
+int $sizeSel = `size($sel)`;
+
+if ($sizeSel == 0)
+	deleteCharWin;
+	
+else
+	{	
+		string $charName[];
+			tokenize $sel[0] "_" $charName;
+		int $sizeChar = `size($charName)`;
+		string $result = `confirmDialog
+		-title "WARNING: Mask Delete"
+		-ma "center"
+		-message ("Are you sure you want to delete " + $charName[0]+ "? \n Warning: This will delete ALL of your animation")
+		-button "Yes"
+		-button "No"
+		-defaultButton "Yes"
+		-cancelButton "No"
+		-dismissString "No"`
+		;
+		
+		if ($result == "Yes")
+			{
+				if ( $sizeChar == 2 )
+					maskDelete $charName[0];
+				
+				else
+					error "Please select a character to delete";	
+			}
+	}
+}
+
+global proc deleteCharWin()
+{	
+if ( `window -exists deleteCharUI`)
+	deleteUI deleteCharUI;	
+
+string $masks[] =`ls -tr "*_MaskControl"`;
+
+if(`size($masks)` == 0)
+	error "No characters found";
+
+window -tlb 1 -t "Delete Characters" deleteCharUI;
+
+string $switchCharForm = `formLayout -numberOfDivisions 100`;
+
+string $charControl = `paneLayout -cn single`;
+	textScrollList -numberOfRows 12 -ams 0 -h 200 listCharToDelete;
+	for ($each in $masks)
+	{
+	    string $charName[];
+	    tokenize $each "_" $charName;
+
+		textScrollList -e -dkc "deleteChar; deleteUI deleteCharUI" -dcc "deleteChar; deleteUI deleteCharUI" -append $charName[0] listCharToDelete;
+	}
+setParent..;
+
+string $buttonControl = `columnLayout -adjustableColumn true`;
+	button -w 145 -h 30 -l "Delete" -c "deleteChar; deleteUI deleteCharUI";
+	button -w 145 -h 30 -l "Close" -c "deleteUI deleteCharUI";
+
+formLayout
+	-edit
+	
+	-attachForm $charControl "left" 0
+	-attachForm $charControl "top" 0
+	-attachForm $charControl "bottom" 62
+	-attachForm $charControl "right" 0
+
+	-attachForm $buttonControl "left" 0
+	-attachForm $buttonControl "bottom" 0
+	-attachControl $buttonControl top 2 $charControl
+	-attachForm $buttonControl "right" 0
+	
+	$switchCharForm;
+		
+window -edit -wh 158 280 deleteCharUI;	
+showWindow deleteCharUI;	
+}
+
+global proc importMaskUI(string $charName)
+{
+string $result = `confirmDialog
+	-title "Import/Reference Character"
+	-ma "center"
+	-message ($charName + " is currently not in the scene.\nWould you like to import or reference " + $charName + "?")
+	-button "Import"
+	-button "Reference"
+	-button "Cancel"
+	-defaultButton "Import"
+	-cancelButton "Cancel"
+	-dismissString "Cancel"`
+	;
+		
+	if ($result == "Import")
+		Import;
+	
+	if ($result == "Reference")
+		CreateReference;
+}
+
+global proc deleteChar()
+{
+string $listName[] = `textScrollList -q -si listCharToDelete`;
+		string $result = `confirmDialog
+		-title "WARNING: Mask Delete"
+		-ma "center"
+		-message ("Are you sure you want to delete " + $listName[0]+ "? \n Warning: This will delete ALL of your facial animation")
+		-button "Yes"
+		-button "No"
+		-defaultButton "Yes"
+		-cancelButton "No"
+		-dismissString "No"`
+		;
+		
+		if ($result == "Yes")
+			maskDelete $listName[0];
+}
+
+global proc maskDelete(string $charName)
+{	
+layerEditorDeleteLayer ( $charName + "_MaskLayer" );
+delete ($charName + "_MaskControl");
+delete ($charName + "_MaskCamGroup");
+delete ($charName + "CamLocator");
+clearGlobalChar;
+}
+
+global proc clearGlobalChar()
+{
+global string $gCharName;
+$gCharName = "";	
+}
+
+//end

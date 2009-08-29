@@ -1,0 +1,1289 @@
+//Keegan
+//Custom Character Control
+//C3
+//C3displayOptions
+//C3shelf
+//animation
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2005 David Keegan
+www.keegan3d.com
+
+C3 3.0
+
+Function: Allows the user to create a custom character
+	control interface.
+
+Last Updated: (02-13-05)
+
+Install
+	1. Move C3.mel to you Maya scripts directory.
+	2. Move C3_Icons to you Maya icons directory.
+	3. Type "C3" into Maya's command line.
+	
+	To create a shelf button type "C3shelf" in to Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+History:
+	-v2.0:
+		-Camera attributes are now in the setup window, making it easier
+		for the user to center the character in the interface.
+		-Mirror buttons allows the user to quickly create symmetrical controls.
+		-The new "Tool" option allows the user to save a manipulation tool in
+		the button: move, rotate, scale. The tool is switched when
+		the button is pressed. Because of this new feature interfaces saved in
+		C3 1.0 cannot be imported into C3 2.0.
+		-If a button contains no object it is not transferred to the final interface.
+		
+	-v3.0:
+		-Interface can now be viewed in a window or pane view.
+		-In pane mode the interface contains a channel box and layer editor.
+		-Multi-Select button added, allowing the user to select multiple
+		controls simultaneously.
+	
+All code and icons created by David Keegan. 
+Use and/or modify at your own risk.  
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc C3()
+{
+if (!`optionVar -ex "C3displayUI"`)
+	optionVar -intValue "C3displayUI" 0;
+
+string $c = 
+	`confirmDialog
+		-m "How do you want to launch C3"
+		-ma center
+		-t "C3"
+		-b "Setup Character"
+		-b "Load Character"
+	`;
+		
+if($c== "Setup Character")
+	C3setup;
+		
+if($c== "Load Character")
+	importC3file;
+}
+
+global proc C3shelf()
+{
+string $imagepath = `internalVar -ubd` + "C3_Icons/";
+
+setShelfVisible 1;
+global string $gShelfTopLevel;
+
+shelfButton
+	-parent ($gShelfTopLevel + "|" + `tabLayout -q -st $gShelfTopLevel`)
+	-l "C3"
+	-ann "Launch C3"
+	-i1 ($imagepath + "C3shelf.xpm")
+	-c "C3"
+	;	
+}
+
+global proc C3setup()
+{
+if(`window -q -ex C3ImagesetUp`)	
+	deleteUI C3ImagesetUp;
+
+if(`window -q -ex C3setUp`)
+	deleteUI C3setUp;
+
+int $buttWH = 14;
+		
+window -s 0 -tlb 1 -t "Custom Character Control - Image" C3ImagesetUp;
+formLayout C3imageForm;
+	string $charEditCol = `columnLayout -adj 1`;
+		rowLayout -rat 1 both 5  -nc 2 -cw2 98 1 -adj 2;
+			text -w 98 -fn "boldLabelFont" -l "Character Name: ";
+			textField charName;
+	setParent C3imageForm;
+		
+	string $baseCol = `paneLayout`;
+		modelEditor
+			-displayAppearance smoothShaded -dtx 1
+			-allObjects 0
+			-polymeshes 1
+			-subdivSurfaces 1
+			-nurbsSurfaces 1
+			-grid 0
+			-camera front
+			C3cam;
+	setParent C3imageForm;
+	
+	string $doneButt = `columnLayout -adj 1`;
+		attrFieldGrp
+			-l "Camera"
+			-at "front.t"
+			-cw4 50 57 57 57
+			C3cameraPos;
+		button -l "Side View" -c "C3switchCam" switchCamButt;
+		button -l "Done" -c "charNameImage";
+	setParent C3imageForm;
+
+setParent C3imageForm;
+		
+formLayout
+	-edit
+			
+	-attachForm $charEditCol "left" 0
+	-attachForm $charEditCol "right" 0
+	-attachControl $charEditCol "bottom" 0 $baseCol
+	-attachForm $charEditCol "top" 0
+	
+	-attachForm $baseCol "left" 0
+	-attachForm $baseCol "right" 0
+	-attachForm $baseCol "top" 22
+	-attachForm $baseCol "bottom" 66	
+	
+	-attachForm $doneButt "left" 0
+	-attachForm $doneButt "right" 0
+	-attachControl $doneButt "top" 0 $baseCol
+	-attachForm $doneButt "bottom" 0
+	
+	C3imageForm;
+
+window -edit -wh 226 392 C3ImagesetUp;
+showWindow C3ImagesetUp;
+}	
+
+global proc C3switchCam()
+{
+string $cam = `modelEditor -q -camera C3cam`;
+
+if($cam == "front")
+	{
+		button -edit -l "Front View" switchCamButt;
+		modelEditor -edit -camera side C3cam;
+		attrFieldGrp -edit -at "side.t" C3cameraPos;
+	}
+	
+if($cam == "side")
+	{
+		button -edit -l "Side View" switchCamButt;
+		modelEditor -edit -camera front C3cam;
+		attrFieldGrp -edit -at "front.t" C3cameraPos;
+	}
+}
+
+global proc charNameImage()
+{
+string $sel[] = `ls -sl`;
+string $projectDir = `workspace -q -rd`;
+float $currentTime = `currentTime -q`;
+string $charName = `textField -q -tx charName`;
+
+if(`size($charName)`==0)
+	error "You must enter a character name before proceding";
+
+string $multiChar[];
+string $testName = $charName + "test";
+tokenize $testName " !@#$%^&*(){}[]-_=+':;,.<>?/" $multiChar;
+$numWords = `size($multiChar)`;
+
+if ( $numWords > 1 )
+	error "Please remove the symble from your character name \" !@#$%^&*(){}[]-_=+':;,.<>?/\"";
+
+//make dir
+int $C3DirExists = `filetest -d ($projectDir + "C3")`;
+if (!$C3DirExists) 
+	{
+		chdir $projectDir;
+		system "mkdir C3";
+	}
+
+int $charDirExists = `filetest -d ($projectDir + "C3/" + $charName)`;
+if (!$charDirExists)
+	{
+		chdir ($projectDir + "C3");
+		system ("mkdir " + $charName);	
+	}
+
+string $imagepath = $projectDir + "C3/" + $charName + "/";
+	
+string $charBG = $charName + "C3bg";
+
+int $userRenderFormat = `getAttr "defaultRenderGlobals.imageFormat"`;
+setAttr "defaultRenderGlobals.imageFormat" 20;
+
+select -cl;
+modelEditor -e -av C3cam;
+playblast -orn 0 -st $currentTime -et $currentTime -w 220 -h 280 -p 100 -v 0 -fo -fmt image -f ($imagepath + "C3temp"); 	
+	
+string $list[] = `getFileList -folder $imagepath -filespec "C3temp.*"`;
+int $fileExists = `filetest -r ($imagepath + $list[0])`;
+if ($fileExists)
+	sysFile -delete ($imagepath + $charBG);
+
+sysFile -rename ( $imagepath + $charBG + ".bmp" ) ($imagepath + $list[0]);
+
+setAttr "defaultRenderGlobals.imageFormat" $userRenderFormat;
+select -r $sel;
+
+C3buttSetup $charName;
+}
+
+global proc C3buttSetup(string $charName)
+{
+int $tlc[] = `window -q -tlc C3ImagesetUp`;
+string $projectDir = `workspace -q -rd`;
+string $imagepath = `internalVar -ubd` + "C3_Icons/";
+string $BGimagePath = $projectDir + "C3/" + $charName + "/";
+
+if(`window -q -ex C3setUp`)	
+	deleteUI C3setUp;
+
+	int $buttWH = 14;
+	
+int $x[] = 
+	{
+		103,
+		103,
+		130,
+		76,
+		45,
+		161,
+		10,
+		196,
+		103,
+		103,
+		103,
+		120,
+		86,
+		125,
+		81
+	};
+
+	int $y[] = 
+	{
+		10,
+		32,
+		45,
+		45,
+		40,
+		40,
+		45,
+		45,
+		60,
+		90,
+		120,
+		185,
+		185,
+		250,
+		250
+	};
+		
+window -s 0 -tlb 1 -t "Custom Character Control - Buttons" C3setUp;
+formLayout uiForm;
+	string $baseCol = `columnLayout`;
+		formLayout charControl;
+		
+		string $image = `picture -en 0 -i ($BGimagePath + $charName + "C3bg.bmp")`;
+		setParent charControl;
+		
+		for($i=0; $i<`size($x)`; $i++)
+			{
+				string $butt = `iconTextButton -i1 ($imagepath + "C3selButton.xpm") -w $buttWH -h $buttWH`;
+					popupMenu;
+						menuItem -l "Delete Button" -c ("deleteUI " + $butt);
+				
+				int $top = $y[$i];
+				int $bottom = ((320 + $buttWH) - $y[$i]);
+				int $left = $x[$i];
+				int $right = ((298 - $buttWH) - $x[$i]);
+				
+				iconTextButton -edit -c ("updateC3ButtEditor " + $butt + " " + $x[$i] + " " + $y[$i] + " none" + " none") $butt;
+				
+				setParent charControl;
+				
+				formLayout
+					-edit
+					
+					-attachForm $butt "top" $top
+					-attachForm $butt "bottom" $bottom
+					-attachForm $butt "left" $left
+					-attachForm $butt "right" $right
+					
+					charControl;
+			}
+		
+		formLayout
+			-edit
+			
+			-attachForm $image "left" 0
+			-attachForm $image "right" 0
+			-attachForm $image "top" 0
+			-attachForm $image "bottom" 0
+			
+		charControl;
+
+setParent uiForm;
+
+	int $mirrorButtW = 110;
+	string $buttEditCol = `columnLayout -adj 1`;
+		intSliderGrp -f 1 -l "X" -cw3 26 50 1 -adj 3 -en 0 xDir;
+		intSliderGrp -f 1 -l "Y" -cw3 26 50 1 -adj 3 -en 0 yDir;;
+		
+		rowLayout -cl3 center center center -nc 3 -cw3 35 1 40 -adj 2;
+			text " Select";
+			textField -en 0 selField;
+			button -en 0 -w 40 -l "Select" selButt;
+		setParent..;
+		
+		frameLayout -bs "etchedIn" -h 55 "Tool";
+			radioCollection C3toolRadio;
+				gridLayout -cwh 100 20 -nc 2;
+					radioButton -en 0 -sl -l "None" none_C3;
+					radioButton -en 0 -l "Move" move_C3;
+					radioButton -en 0 -l "Rotate" rotate_C3;
+					radioButton -en 0 -l "Scale" scale_C3;
+			setParent..;
+		setParent..;
+		
+		rowLayout -cl2 center center -nc 2 -cw2 $mirrorButtW $mirrorButtW;
+			button -w $mirrorButtW -h 18 -l "Mirror >>" -c "mirrorC3buttSetup 0";
+			button -w $mirrorButtW -h 18 -l "<< Mirror" -c "mirrorC3buttSetup 1";
+		setParent..;	
+	
+		button -l "Add Button" -c "addC3Button";
+		button -l "Finish" -c ("finishC3 " + $charName);
+		
+formLayout
+	-edit
+			
+	-attachForm $baseCol "left" 0
+	-attachForm $baseCol "right" 0
+	-attachForm $baseCol "top" 0
+	-attachControl $baseCol "bottom" 0 $buttEditCol
+			
+	-attachForm $buttEditCol "left" 0
+	-attachForm $buttEditCol "right" 0
+	-attachForm $buttEditCol "top" 278 
+	-attachForm $buttEditCol "bottom" 0
+			
+	uiForm;
+
+window -edit -wh 226 485 -tlc $tlc[0] $tlc[1] C3setUp;
+showWindow C3setUp;
+
+if(`window -q -ex C3ImagesetUp`)	
+	deleteUI C3ImagesetUp;
+}
+
+global proc addC3Button()
+{
+string $imagepath = `internalVar -ubd` + "C3_Icons/";
+string $children[] = `formLayout -q -ca charControl`;
+int $buttNum = `size($children)`-1;
+
+setParent charControl;
+
+int $buttWH = 14;
+int $x = 103;
+int $y = 133;
+
+int $top = $y;
+int $bottom = ((320 + $buttWH) - $y);
+int $left = $x;
+int $right = ((298 - $buttWH) - $x);
+
+string $butt = `iconTextButton -i1 ($imagepath + "C3selButton.xpm") -w $buttWH -h $buttWH`;
+	popupMenu;
+		menuItem -l "Delete Button" -c ("deleteUI " + $butt);
+		
+iconTextButton -edit -c ("updateC3ButtEditor " + $butt + " " + $x + " " + $y + " none" + " none") $butt;
+
+formLayout
+	-edit
+					
+	-attachForm $butt "top" $top
+	-attachForm $butt "bottom" $bottom
+	-attachForm $butt "left" $left
+	-attachForm $butt "right" $right
+					
+charControl;
+
+updateC3ButtEditor $butt $x $y "none" "none";
+}
+
+global proc C3buttSelTool(string $butt, string $tool)
+{
+string $c = `textField -q -tx selField`;
+if(`size($c)`==0)
+	$c = "none";
+
+int $x = `intSliderGrp -q -v xDir`+103;
+int $y = 133-`intSliderGrp -q -v yDir`;
+
+iconTextButton -edit -c ("updateC3ButtEditor " + $butt + " " + $x + " " + $y + " " + $c + " " + $tool) $butt;
+}
+
+global proc updateC3ButtEditor (string $butt, int $x, int $y, string $c, string $tool)
+{
+int $v = 1;
+string $imagepath = `internalVar -ubd` + "C3_Icons/";
+
+string $children[] = `formLayout -q -ca charControl`;
+	for($i=1; $i<`size($children)`; $i++)
+		{
+			string $picture = `iconTextButton -q -i1 $children[$i]`;
+			if($picture == ($imagepath + "C3selButtonSel.xpm"))
+				iconTextButton -edit -i1 ($imagepath + "C3selButton.xpm") $children[$i];
+		}
+	
+iconTextButton -edit -i1 ($imagepath + "C3selButtonSel.xpm") $butt;
+
+intSliderGrp -edit -en 1 -min -103 -max 103 -v ($x-103) -dc ("updateC3ButtPos " + $butt + " " + $c) -cc ("updateC3ButtPos " + $butt + " " + $c) xDir;
+intSliderGrp -edit -en 1 -min -131 -max 133 -v (133-$y) -dc ("updateC3ButtPos " + $butt + " " + $c) -cc ("updateC3ButtPos " + $butt + " " + $c) yDir;
+
+if($c=="none")
+	{
+		$v = 0;
+		$c = "";
+	}
+
+textField -edit -en $v -tx $c selField;
+button -edit -en 1 -c ("addSelToButt " + $butt) selButt;
+
+radioButton -edit -en 1 -onc ("C3buttSelTool " + $butt + " none") none_C3;
+radioButton -edit -en 1 -onc ("C3buttSelTool " + $butt + " move") move_C3;
+radioButton -edit -en 1 -onc ("C3buttSelTool " + $butt + " rotate") rotate_C3;
+radioButton -edit -en 1 -onc ("C3buttSelTool " + $butt + " scale") scale_C3;
+
+radioButton -edit -sl ($tool + "_C3");
+}
+
+global proc addSelToButt(string $butt)
+{
+string $sel[] = `ls -sl`;
+
+if(`size($sel)` == 0 || `size($sel)`>1)
+	error "Select one control";
+
+string $radioBD[];
+string $radio = `radioCollection -q -sl C3toolRadio`;
+tokenize $radio "_" $radioBD;
+string $tool = $radioBD[0];
+
+string $c = $sel[0];
+int $x = `intSliderGrp -q -v xDir`+103;
+int $y = 133-`intSliderGrp -q -v yDir`;
+
+iconTextButton -edit -c ("updateC3ButtEditor " + $butt + " " + $x + " " + $y + " " + $c + " " + $tool) $butt;
+textField -edit -en 1 -tx $c selField;
+}
+
+global proc updateC3ButtPos (string $butt, string $c)
+{
+int $buttWH = 14;
+
+int $x = `intSliderGrp -q -v xDir`+103;
+int $y = 133-`intSliderGrp -q -v yDir`;
+
+string $radioBD[];
+string $radio = `radioCollection -q -sl C3toolRadio`;
+tokenize $radio "_" $radioBD;
+string $tool = $radioBD[0];
+
+int $top = $y;
+int $bottom = ((320 + $buttWH) - $y);
+int $left = $x;
+int $right = ((298 - $buttWH) - $x);
+
+formLayout
+	-edit
+					
+	-attachForm $butt "top" $top
+	-attachForm $butt "bottom" $bottom
+	-attachForm $butt "left" $left
+	-attachForm $butt "right" $right
+					
+charControl;
+
+iconTextButton -edit -c ("updateC3ButtEditor " + $butt + " " + $x + " " + $y + " " + $c + " " + $tool) $butt;
+}
+
+global proc mirrorC3buttSetup(int $v)
+{
+int $x[];
+int $y[];
+int $xM[];
+int $yM[];
+string $delButt[];
+string $mirButt[];
+string $mTool[];
+string $picture;
+string $content;
+string $command[];
+string $childeren[] = `formLayout -q -ca charControl`;
+	
+for($i=0; $i<`size($childeren)`; $i++)
+	{
+		if($i>0)
+			{
+				int $xR;
+				int $yR;
+				string $tool;
+				
+				string $cBD[];
+				string $command = `iconTextButton -q -c $childeren[$i]`;
+				tokenize $command " \"" $cBD;
+				
+				$xR = $cBD[2];
+				$yR = $cBD[3];
+				
+				$xR = $xR-103;
+				$yR = 133-$yR;
+				
+				$x[`size($x)`] = $xR;
+				$y[`size($y)`] = $yR;
+				
+				$tool = $cBD[5];
+				
+				if($v)
+					{
+						if($xR < 0)
+							$delButt[`size($delButt)`] = $childeren[$i];
+						
+						if($xR > 0)
+							{
+								$mirButt[`size($mirButt)`] = $childeren[$i];
+								$xM[`size($xM)`] = $xR;
+								$yM[`size($yM)`] = $yR;
+								$mTool[`size($mTool)`] = $tool;
+							}
+					}
+					
+				if(!$v)
+					{
+						if($xR > 0)
+							$delButt[`size($delButt)`] = $childeren[$i];
+						
+						if($xR < 0)
+							{
+								$mirButt[`size($mirButt)`] = $childeren[$i];
+								$xM[`size($xM)`] = $xR;
+								$yM[`size($yM)`] = $yR;
+								$mTool[`size($mTool)`] = $tool;
+							}
+				}
+			}
+	}
+
+if(`size($delButt)` > 0)
+	deleteUI $delButt;
+
+for($m=0; $m<`size($mirButt)`; $m++)
+	mirrorC3Butt (($xM[$m]*-1)+103) (133-$yM[$m]) $mTool[$m]; 
+}
+
+global proc mirrorC3Butt(int $x, int $y, string $tool)
+{
+string $imagepath = `internalVar -ubd` + "C3_Icons/";
+
+setParent charControl;
+
+int $buttWH = 14;
+
+int $top = $y;
+int $bottom = ((320 + $buttWH) - $y);
+int $left = $x;
+int $right = ((298 - $buttWH) - $x);
+
+string $butt = `iconTextButton -i1 ($imagepath + "C3selButton.xpm") -w $buttWH -h $buttWH`;
+	popupMenu;
+		menuItem -l "Delete Button" -c ("deleteUI " + $butt);
+		
+iconTextButton -edit -c ("updateC3ButtEditor " + $butt + " " + $x + " " + $y + " none " + $tool) $butt;
+
+formLayout
+	-edit
+					
+	-attachForm $butt "top" $top
+	-attachForm $butt "bottom" $bottom
+	-attachForm $butt "left" $left
+	-attachForm $butt "right" $right
+					
+charControl;
+}
+
+global proc finishC3 (string $charName)
+{
+int $x[];
+int $y[];
+string $sel[];
+string $tool[];
+string $picture;
+string $content;
+string $command[];
+string $printDir, $printSel;
+string $projectDir = `workspace -q -rd`;
+string $file = $projectDir + "C3/" + $charName + "/" + $charName + ".mel";
+string $childeren[] = `formLayout -q -ca charControl`;
+
+//date
+string $dateDreakdown[];
+string $systemDate = `system "date"`;
+tokenize $systemDate ": " $dateDreakdown;
+string $date = $dateDreakdown[4] + " " + $dateDreakdown[5];
+
+//time
+string $timeDreakdown[];
+string $systemtime = `system "time"`;
+tokenize $systemtime ":.\n " $timeDreakdown;
+string $time =  $timeDreakdown[4] + ":" + $timeDreakdown[5] + "." + $timeDreakdown[6];
+
+for($i=0; $i<`size($childeren)`; $i++)
+	{
+		if($i>0)
+			{
+				string $cBD[];
+				string $command = `iconTextButton -q -c $childeren[$i]`;
+				tokenize $command " \"" $cBD;
+				
+				if($cBD[4] == "none");
+				
+				else
+					{
+						$sel[`size($sel)`] = $cBD[4];
+				
+						$x[`size($x)`] = $cBD[2];
+						$y[`size($y)`] = $cBD[3];
+				
+						$tool[`size($tool)`] = $cBD[5];
+					}
+			}
+	}
+
+if(!`size($sel)`)
+	error "Buttons contain no objects";
+	
+int $fileID = `fopen $file "w"`;
+fprint $fileID "//Custom Character Control By David Keegan\n";
+fprint $fileID ("//Last modified : (" + $date + " " + $time + ")\n\n{\n");
+
+fprint $fileID ("string $charName = \"" + $charName + "\";\n\n");
+
+fprint $fileID "int $x[] =\n\t{";
+for($ix=0; $ix<`size($x)`; $ix++)
+	{
+		if($ix == `size($x)`-1)
+			fprint $fileID ("\n\t\t" + $x[$ix]);
+		else
+			fprint $fileID ("\n\t\t" + $x[$ix] + ",");
+	}
+fprint $fileID "\n\t};\n";
+fprint $fileID "\n";
+
+fprint $fileID "int $y[] =\n\t{";
+for($iy=0; $iy<`size($y)`; $iy++)
+	{
+		if($iy == `size($y)`-1)
+			fprint $fileID ("\n\t\t" + $y[$iy]);
+		else
+			fprint $fileID ("\n\t\t" + $y[$iy] + ",");
+	}
+fprint $fileID "\n\t};\n";
+fprint $fileID "\n";
+
+fprint $fileID "string $sel[] =\n\t{";
+for($is=0; $is<`size($sel)`; $is++)
+	{
+		if($is == `size($sel)`-1)
+			fprint $fileID ("\n\t\t\"" + $sel[$is] + "\"");
+		else
+			fprint $fileID ("\n\t\t\"" + $sel[$is] + "\",");
+	}
+fprint $fileID "\n\t};\n";
+fprint $fileID "\n";
+
+fprint $fileID "string $tool[] =\n\t{";
+for($is=0; $is<`size($sel)`; $is++)
+	{
+		if($is == `size($sel)`-1)
+			fprint $fileID ("\n\t\t\"" + $tool[$is] + "\"");
+		else
+			fprint $fileID ("\n\t\t\"" + $tool[$is] + "\",");
+	}
+fprint $fileID "\n\t};\n";
+
+fprint $fileID "\nC3action $charName $x $y $sel $tool;";
+fprint $fileID "\n}";
+
+fclose $fileID;
+print ("File saved to: " + $file);
+
+C3action $charName $x $y $sel $tool;
+
+if(`window -q -ex C3setUp`)
+	deleteUI C3setUp;
+}
+
+global proc C3action(string $charName, int $x[], int $y[], string $sel[], string $tool[])
+{
+if(!`window -q -ex C3UI`)
+	C3finalUI;
+
+updateC3UI $charName $x $y $sel $tool;
+}
+
+global proc importC3file()
+{
+string $fileBD[];
+string $projectDir = `workspace -q -rd`;
+string $fileDir = $projectDir + "C3/";
+string $fileName = `fileDialog -dm ($fileDir + "*.mel")`;
+
+if(!`size($fileName)`)
+	error "Import C3 file canceled";
+
+tokenize $fileName "/." $fileBD;
+string $charName = $fileBD[`size($fileBD)`-2];
+
+file -import -type "mel" -pr $fileName;
+}
+
+global proc switchC3butts()
+{
+string $vBD[];
+string $v = `optionMenu -q -v charSwitchMenu`;
+tokenize $v " " $vBD;
+string $charName = $vBD[0];
+
+string $projectDir = `workspace -q -rd`;
+string $file = $projectDir + "C3/" + $charName + "/" + $charName + ".mel";
+
+file -import -type "mel" -pr $file;
+}
+
+global proc updateC3UI(string $charName, int $x[], int $y[], string $sel[], string $tool[])
+{
+int $buttWH = 14;
+string $imagepath = `internalVar -ubd` + "C3_Icons/";
+string $projectDir = `workspace -q -rd`;
+string $picture = "C3/" + $charName + "/" + $charName + "C3bg.bmp";
+
+if(`formLayout -q -ex charControlForm`)
+	deleteUI charControlForm;
+setParent C3charImageCol;
+formLayout charControlForm;
+
+string $image = `picture -en 0 -i ($projectDir + $picture)`;
+
+setParent charControlForm;
+		
+	for($i=0; $i<`size($x)`; $i++)
+		{
+			string $butt = `iconTextButton -i1 ($imagepath + "C3selButton.xpm") -c ("C3buttCommand " + $sel[$i] + " " + $tool[$i]) -w $buttWH -h $buttWH`;
+				
+			int $top = $y[$i];
+			int $bottom = ((320 + $buttWH) - $y[$i]);
+			int $left = $x[$i];
+			int $right = ((298 - $buttWH) - $x[$i]);
+			
+			setParent charControlForm;
+				
+			formLayout
+				-edit
+					
+				-attachForm $butt "top" $top
+				-attachForm $butt "bottom" $bottom
+				-attachForm $butt "left" $left
+				-attachForm $butt "right" $right
+					
+				charControlForm;
+		}
+		
+	formLayout
+		-edit
+			
+		-attachForm $image "left" 0
+		-attachForm $image "right" 0
+		-attachForm $image "top" 0
+		-attachForm $image "bottom" 0
+			
+	charControlForm;
+
+if(!`menuItem -q -ex $charName`)
+	{
+		menuItem 
+				-p charSwitchMenu 
+				-l ($charName + "                                                     ") 
+				$charName;
+		int $numMenu = `optionMenu -q -ni charSwitchMenu`;
+		optionMenu -edit -sl $numMenu charSwitchMenu;
+	}
+}
+
+global proc C3finalUI()
+{
+int $C3dis = `optionVar -q "C3displayUI"`;
+
+if(!$C3dis)
+	C3charWindow;
+
+if ($C3dis)
+	C3paneLayout;
+}
+
+global proc C3charWindow()
+{
+if (!`optionVar -ex "C3multiSel"`)
+	optionVar -intValue "C3multiSel" 0;
+
+if(`window -q -ex C3interface`)
+	deleteUI C3interface;
+
+if (`formLayout -q -ex C3uiForm`)
+	deleteUI C3uiForm;
+
+if (`panelConfiguration -q -ex C3Persp`)
+	deleteUI -pc C3Persp;
+
+if(`frameLayout -q -ex C3uiForm`)
+	deleteUI C3uiForm;
+
+int $multiSelToggle = `optionVar -q "C3multiSel"`;
+
+string $imagepath = `internalVar -ubd` + "C3_Icons/";
+int $cellWH = 26;
+int $timeButtWH = $cellWH;
+int $autoKey = `autoKeyframe -q -state`;
+string $currentLoop = `playbackOptions -q -l`;
+
+window -t "C3" C3interface;
+formLayout C3uiForm;
+	string $charEditCol = `columnLayout -adj 1`;
+		rowLayout -rat 1 both 5  -nc 2 -cw2 60 1 -adj 2;
+			text -w 60 -fn "boldLabelFont" -l "Character: ";
+				popupMenu -b 1;
+					menuItem -l "Load Character" -c "importC3file";
+			optionMenu -cc "switchC3butts" charSwitchMenu;
+	setParent C3uiForm;
+		
+	string $baseCol = `columnLayout C3charImageCol`;
+
+setParent C3uiForm;
+	string $multiCol = `iconTextCheckBox
+		-h 24
+		-st "iconAndTextHorizontal"
+		-v $multiSelToggle
+		-l "Multi-Select"
+		-i1 ($imagepath + "multiSel" + $multiSelToggle + ".bmp")
+		-cc "multiSelChange"
+		C3multiSelectToggle`;
+
+formLayout
+	-edit
+			
+	-af $charEditCol "left" 0
+	-af $charEditCol "right" 0
+	-af $charEditCol "top" 0
+	-ac $charEditCol "bottom" 0 $baseCol
+	
+	-af $baseCol "left" 0
+	-af $baseCol "right" 0
+	-af $baseCol "top" 22
+	-ac $baseCol "bottom" 0 $multiCol
+
+	-af $multiCol "left" 0
+	-af $multiCol "right" 0
+	-af $multiCol "top" 302
+	-af $multiCol "bottom" 0
+	
+	C3uiForm;
+
+window -edit -wh 228 355 C3interface;
+showWindow C3interface;
+}
+
+global proc C3paneLayout()
+{
+if (`panelConfiguration -q -ex C3Persp` != 1)
+	{
+		C3Panel;
+		setNamedPanelLayout "C3/Persp";
+	}
+
+if (`panelConfiguration -q -ex C3Persp`)
+	setNamedPanelLayout "C3/Persp";
+}
+
+global proc C3Panel()
+{
+global string $gMainPane;
+string $imagepath = `internalVar -ubd`+"C3_Icons/";
+
+if (!`scriptedPanelType -q -exists C3ScriptedPanel`) 
+		scriptedPanelType
+			-createCallback "C3CreatePanel"
+			-addCallback    "C3AddPanel" 
+			-removeCallback "C3RemovePanel"
+			-deleteCallback "C3DeletePanel"
+			-unique 1
+			C3ScriptedPanel;
+
+if(`window -q -ex C3interface`)
+	deleteUI C3interface;
+
+if (`panelConfiguration -q -ex C3Persp`)
+	deleteUI -pc C3Persp;
+
+panelConfiguration 
+	-label "C3/Persp"
+	-defaultImage ($imagepath + "C3shelf.xpm")
+	-image ($imagepath + "C3shelf.xpm")
+	-sc 1
+	-cfs "global string $gMainPane; paneLayout -e -cn \"vertical2\" -ps 1 78 100 -ps 2 22 100 $gMainPane;"
+	-ap 1
+		"Persp View"
+		"modelPanel"
+		("{global int $gUseMenusInPanels;\modelPanel -mbv $gUseMenusInPanels\ -unParent -l \"Persp View\" -cam persp;}" )
+		"modelPanel -edit -l \"Persp View\"  -cam \"persp\" $panelName"
+	-ap 0
+		"C3"
+		"scriptedPanel"
+		("{global int $gUseMenusInPanels;\$panelName = `scriptedPanel -mbv $gUseMenusInPanels -unParent -type \"C3ScriptedPanel\" -l \"Deform Keyframes\"`;\scriptedPanel -e  $panelName;}")
+		"scriptedPanel -edit -l \"Deform Keyframes\" -mbv 1  $panelName"
+		C3Persp;
+
+	if (`scriptedPanel -q -ex C3Panel`)
+		deleteUI -pnl C3Panel;
+		
+	$maskPanel = `scriptedPanel -mbv 1 -parent $gMainPane -l "C3" -type "C3ScriptedPanel" C3Panel`;
+
+}
+
+//content
+global proc C3AddPanel(string $gMaskPanel)
+{
+if (!`optionVar -ex "C3multiSel"`)
+	optionVar -intValue "C3multiSel" 0;
+
+int $multiSelToggle = `optionVar -q "C3multiSel"`;
+
+string $imagepath = `internalVar -ubd` + "C3_Icons/";
+int $cellWH = 26;
+int $timeButtWH = $cellWH;
+int $autoKey = `autoKeyframe -q -state`;
+string $currentLoop = `playbackOptions -q -l`;
+	
+formLayout C3uiForm;
+	string $charEditCol = `columnLayout -adj 1`;
+		rowLayout -rat 1 both 5  -nc 2 -cw2 60 1 -adj 2;
+			text -w 60 -fn "boldLabelFont" -l "Character: ";
+				popupMenu -b 1;
+					menuItem -l "Load Character" -c "importC3file";
+			optionMenu -cc "switchC3butts" charSwitchMenu;
+	setParent C3uiForm;
+		
+	string $baseCol = `columnLayout C3charImageCol`;
+
+setParent C3uiForm;
+	string $multiCol = `iconTextCheckBox
+		-h 24
+		-st "iconAndTextHorizontal"
+		-v $multiSelToggle
+		-l "Multi-Select"
+		-i1 ($imagepath + "multiSel" + $multiSelToggle + ".bmp")
+		-cc "multiSelChange"
+		C3multiSelectToggle`;
+	
+setParent C3uiForm;
+	string $attrCol = `paneLayout -cn "horizontal2"`;
+		frameLayout -l "ChannelBox"; 
+			channelBox C3channelBox;
+				popupMenu;
+					menuItem -l "Key Selected" -ann "Key attribute at current time" -c "C3keySelect";
+					menuItem -l "Key All" -ann "Key all attributes at current time" -c "C3keyAll";
+					menuItem -d 1;
+					menuItem -l "Remove Keys" -ann "Remove all keyframes from attribute" -c "breakC3keyConnection";
+			
+	setParent $attrCol;
+		int $wh = 22;
+		string $layers[] = `gridLayout -q -ca LayerEditorDisplayLayerLayout`;
+		scrollLayout -cr 1 -hst 0;
+		columnLayout -adj 1 maskLayerCol;
+		text -fn "boldLabelFont" -al "left" "Layer Editor";
+		separator -st "single"; 
+		for ($each in $layers)
+			{
+				string $state = `layerButton -q -ls $each`;
+				int $vis = `getAttr ($each + ".visibility")`;
+				rowLayout 
+					-cl3 left center right
+					-nc 3 
+					-cw3 ($wh+3) ($wh+3) 1 
+					-adj 3;
+				
+					if ($vis == 0) 
+						iconTextButton 
+							-h $wh 
+							-w $wh 
+							-st "iconOnly" 
+							-i1 ($imagepath + "visUpC3.bmp") 
+							-c ("C3layerVis " + $each) 
+							($each + "C3vis")
+							;
+									
+					if ($vis == 1) 
+						iconTextButton 
+							-h $wh 
+							-w $wh 
+							-st "iconOnly" 
+							-i1 ($imagepath + "visDownC3.bmp") 
+							-c ("C3layerVis " + $each) 
+							($each + "C3vis")
+							;
+					
+					iconTextButton 
+						-h $wh 
+						-w $wh 
+						-st"iconOnly" 
+						-i1 ($imagepath + $state + "C3.bmp") 
+						-c ("C3layerState " + $each) 
+						($each + "C3state")
+						;
+					
+					text -fn "boldLabelFont" $each;
+						popupMenu;
+						radioMenuItemCollection; 
+							menuItem -l "Template" -c ("C3menuSetLayer " + $each + " template 1") -rb 0 ($each + "C3popuptemplate");
+							menuItem -l "Reference" -c ("C3menuSetLayer " + $each + " reference 2") -rb 0 ($each + "C3popupreference");
+							menuItem -l "Normal" -c ("C3menuSetLayer " + $each + " normal 0") -rb 0 ($each + "C3popupnormal"); 
+							menuItem -d 1;
+							
+							if ($vis == 0)
+								menuItem -l "Visability : On" -c ("C3layerVis " + $each) ($each + "C3popupVisability");
+							
+							if ($vis == 1)
+								menuItem -l "Visability : Off" -c ("C3layerVis " + $each) ($each + "C3popupVisability");
+							
+							menuItem -edit -rb 1 ($each + "C3popup" + $state); 
+					setParent..;
+				separator;
+			}
+
+formLayout
+	-edit
+			
+	-af $charEditCol "left" 0
+	-af $charEditCol "right" 0
+	-af $charEditCol "top" 0
+	-ac $charEditCol "bottom" 0 $baseCol
+	
+	-af $baseCol "left" 0
+	-af $baseCol "right" 0
+	-af $baseCol "top" 22
+	-ac $baseCol "bottom" 0 $multiCol
+
+	-af $multiCol "left" 0
+	-af $multiCol "right" 0
+	-af $multiCol "top" 302
+	-ac $multiCol "bottom" 0 $attrCol
+	
+	-af $attrCol "left" 0
+	-af $attrCol "right" 0
+	-af $attrCol "top" 324
+	-af $attrCol "bottom" 0
+	
+	C3uiForm;
+}
+
+global proc C3CreatePanel(string $gMaskPanel)
+{
+}
+
+global proc C3RemovePanel( string $gMaskPanel)
+{
+}
+
+global proc C3DeletePanel( string $gMaskPanel)
+{
+}
+
+global proc C3keySelect()
+{
+string $sel[] = `channelBox -q -mol C3channelBox`;
+string $attr[] = `channelBox -q -sma C3channelBox`;
+
+for ($each in $attr)
+	setKeyframe ($sel[0] + "." + $each);
+}
+
+global proc C3keyAll()
+{
+string $sel[] = `channelBox -q -mol C3channelBox`;
+string $attr[] = `listAttr -k`;
+
+for ($each in $attr)
+	setKeyframe ($sel[0] + "." + $each);
+}
+
+global proc breakC3keyConnection()
+{
+string $sel[] = `channelBox -q -mol C3channelBox`;
+string $attr[] = `channelBox -q -sma C3channelBox`;
+
+for ($each in $attr)
+	cutKey -cl ($sel[0] + "." + $each);
+}
+
+global proc multiSelChange()
+{
+string $imagepath = `internalVar -ubd` + "C3_Icons/";
+int $v = `iconTextCheckBox -q -v C3multiSelectToggle`;
+
+iconTextCheckBox
+	-edit
+	-h 24
+	-i1 ($imagepath + "multiSel" + $v + ".bmp")
+	C3multiSelectToggle;
+
+optionVar -intValue "C3multiSel" $v;	
+}
+
+global proc C3buttCommand(string $sel, string $tool)
+{
+global string $gSelect;
+global string $gMove;
+global string $gRotate;
+global string $gScale;
+string $selTool;
+
+int $multiSelToggle = `optionVar -q "C3multiSel"`;
+
+if($sel == "none")
+	warning "No object associated with button";
+
+else
+	{
+		if(!$multiSelToggle)
+			select -r $sel;
+		
+		if($multiSelToggle)
+			select -add $sel;
+	}
+
+if($tool == "none")
+	$selTool = $gSelect;
+
+if($tool == "move")
+	$selTool = $gMove;
+
+if($tool == "rotate")
+	$selTool = $gRotate;
+
+if($tool == "scale")
+	$selTool = $gScale;
+
+setToolTo $selTool;
+}
+
+//layers
+global proc C3layerVis(string $layerName)
+{
+string $imagepath = `internalVar -ubd`+"C3_Icons/";
+int $vis = `getAttr ($layerName + ".visibility")`;
+
+if (!$vis) 
+	{
+		setAttr ($layerName + ".visibility") 1;
+		iconTextButton -edit -i1 ($imagepath + "visDownC3.bmp") ($layerName + "C3vis");
+		menuItem -edit -l "Visability : Off" ($layerName + "C3popupVisability");
+	}
+	
+if ($vis)
+	{ 
+		setAttr ($layerName + ".visibility") 0;
+		iconTextButton -edit -i1 ($imagepath + "visUpC3.bmp") ($layerName + "C3vis");
+		menuItem -edit -l "Visability : On" ($layerName + "C3popupVisability");
+	}
+}
+
+global proc C3layerState(string $layerName)
+{
+string $imagepath = `internalVar -ubd`+"C3_Icons/";
+string $state = `layerButton -q -ls $layerName`;
+string $style;
+int $value;
+
+switch ($state)
+	{
+		case "normal":
+			{
+				$value = 1;
+				$style = "template";
+			}
+			break;
+		
+		case "template":
+			{
+				$value = 2;
+				$style = "reference";				
+			}
+			break;
+		
+		case "reference":
+			{
+				$value = 0;
+				$style = "normal";			
+			}
+			break;
+	}
+	
+setAttr ($layerName + ".dt") $value;
+
+iconTextButton -edit -i1 ($imagepath + $style + "C3.bmp")($layerName + "C3state");
+menuItem -edit -rb 1 ($layerName + "C3popup" + $style);
+}
+
+global proc C3menuSetLayer(string $layerName, string $state, int $value)
+{
+string $imagepath = `internalVar -ubd`+"C3_Icons/";
+
+setAttr ($layerName + ".dt") $value;
+
+menuItem -edit -rb 1 ($layerName + "C3popup" + $state);
+iconTextButton -edit -i1 ($imagepath + $state + "C3.bmp")($layerName + "C3state");	
+}
+
+global proc C3displayOptions()
+{
+int $C3dis = `optionVar -q "C3displayUI"`;
+
+if(`window -q -ex C3windowOptions`)
+	deleteUI C3windowOptions;
+
+window -s 0 -t "C3 Options" C3windowOptions;
+frameLayout -lv 0;
+	columnLayout -adj 1;
+		radioCollection C3radioDisplay;
+			radioButton 
+				-al left 
+				-l "Pane Layout" 
+				-onc "optionVar -intValue \"C3displayUI\" 1"
+				-ofc "optionVar -intValue \"C3displayUI\" 0"
+				C3pane;
+			radioButton 
+				-al left 
+				-l "Window Layout" 
+				-onc "optionVar -intValue \"C3displayUI\" 0"
+				-ofc "optionVar -intValue \"C3displayUI\" 1"
+				C3window;
+		button -l "Done" -c "deleteUI C3windowOptions";
+
+if(!$C3dis)
+	radioButton -edit -sl C3window;
+
+if ($C3dis)
+	radioButton -edit -sl C3pane;
+		
+window -edit -wh 125 85 C3windowOptions;
+showWindow C3windowOptions;
+}

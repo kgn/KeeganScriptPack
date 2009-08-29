@@ -1,0 +1,546 @@
+//Keegan
+//Save Selection
+//saveSelection
+//none
+//saveSelection
+//utility
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 2.0
+
+Last Updated:(06-01-2005)
+
+Function: This user interface allows a list of items to 
+			be saved into a button. When the button is 
+			pressed, the list is called and the items in 
+			the list are selected. When a button is first 
+			made, the user is prompted to enter a name; this 
+			name will appear on the button. The name of the 
+			button can be changed at any time by right clicking 
+			on the button and choosing"Edit name". In this popup 
+			menu is "Edit saved". This allows the user to add or 
+			remove items from the buttons selection list. The last 
+			item in the menu deletes the button. 
+			
+		Using the "Edit Select List":
+			-Press the delete key: Removes selected items from the list.
+			-Double clicking on an item: Selects the item in the scene.
+
+Install 
+	1. Move saveSelection.mel to your Maya scripts directory.
+	2. Launch Maya.
+	3. Type "saveSelection" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc saveSelection()
+{
+string $projectDir = `workspace -q -rd`;
+string $saveDir = $projectDir + "saveSelection";
+	
+if (!`filetest -d $saveDir`)
+	{
+		chdir $projectDir;
+		system "mkdir saveSelection";
+	}
+
+string $recentSave = $saveDir + "/recentSave.kgn";
+if(!`filetest -r $recentSave`)
+	{
+		int $recentFileID = `fopen $recentSave "w"`;
+		fclose $recentFileID;
+	}
+	
+string $content[];
+int $fileRead = `fopen $recentSave "r"`;
+string $fileContent = `fgetline $fileRead`;
+    while (`size($fileContent)` > 0 )
+		{
+			string $nameBD[];
+			tokenize $fileContent "\n" $nameBD;
+			$content[`size($content)`] = $nameBD[0];
+	    	$fileContent = `fgetline $fileRead`;
+    	}
+fclose $fileRead;
+
+if(`window -q -ex saveSelUI`)
+	deleteUI saveSelUI;
+
+window -mb 1 -t "Save Selection" -wh 193 165 saveSelUI;
+	menu -l "Options" seveSelOptionMenu;
+		menuItem -l "New Layout" - c "clearSaveLayout";
+		menuItem -d 1;
+		menuItem -l "Save Layout" -c "nameSaveSelFile";
+		menuItem -l "Load Layout" -c "loadSelectionFromFile";
+		menuItem -d 1;
+		menuItem -l "Load Last" -sm 1 loadRecentSaveMenu;
+			for($each in $content)
+				{
+					string $cBD[];
+					tokenize $each "\n" $cBD;
+					if(`size($cBD[0])`>0)
+						{
+							if(!`menuItem -q -ex ($cBD[0] + "_recentSaveMenu")`)
+								menuItem 
+										-c ("loadRecentSave " + $cBD[0]) 
+										-l $cBD[0] 
+										($cBD[0] + "_recentSaveMenu");
+						}
+				}
+		setParent -m..;
+		menuItem -d 1 divideSaveSel;
+		menuItem -l "Close" -c "deleteUI saveSelUI" closeSaveSel;
+
+string $saveForm = `formLayout -nd 100`;
+
+string $scroll = `scrollLayout -hst 0 -cr 1`;
+	columnLayout -adj 1 addButtonLayout;
+setParent $saveForm;
+
+string $save = `columnLayout -adj 1`;
+	button -l "Save Selection" -c "createSaveButtonName";
+	button -l "Close" -c "deleteUI saveSelUI";
+
+formLayout -edit
+
+	-af $scroll "top" 0
+	-af $scroll "left" 0
+	-af $scroll "bottom" 48
+	-af $scroll "right" 0
+	
+	-ac $save "top" 0 $scroll
+	-af $save "left" 0
+	-af $save "bottom" 0
+	-af $save "right" 0
+	
+$saveForm;
+
+string $loadLayout[];
+tokenize $content[0] "\n" $loadLayout;
+string $file = $saveDir + "/" + $loadLayout[0] + ".mel";
+
+if (`filetest -r $file`)
+	{
+		file -import -type "mel" $file;
+		window -edit -t ("Save Selection -- " + $content[0]) saveSelUI;
+	}
+
+showWindow saveSelUI;
+}
+
+global proc createSaveButtonName()
+{
+string $v = `promptDialog
+				-m "Please enter a name"
+				-t "Selection Name"
+				-b "OK"
+				-b "Cancel"
+				-db "OK"
+			`;
+if($v == "OK")
+	{
+		string $name = `promptDialog -q`;
+		
+		if(`size($name)`==0)
+			error "Please enter a name";
+		
+		else
+			createSaveButton $name;
+	}
+}
+
+global proc createSaveButton(string $name)
+{
+string $c;
+string $sel[] = `ls -sl -fl`;
+
+for($each in $sel)
+	$c = $c + " " + $each;
+
+setParent addButtonLayout;
+
+string $buttName = `button -l $name -c ("select -r" + $c) ($name + "_SelSaveButton")`;
+	popupMenu;
+		menuItem -l "Edit name" -c ("changeSelButtName \"" + $name + "\" \"" + $buttName + "\"");
+		menuItem -l "Edit saved" -c ("changeSelButtSaved \"" + $name + "\" \"" + $buttName + "\"");
+		menuItem -d 1;
+		menuItem -l "Delete Button" -c ("deleteSaveButt \"" + $name + "\" \"" + $buttName + "\"");
+}
+
+global proc changeSelButtName (string $name, string $buttName)
+{
+string $oldName = `button -q -l $buttName`;
+
+string $v = `promptDialog
+				-m "Please enter a new name"
+				-t "Selection Name"
+				-tx $oldName
+				-b "OK"
+				-b "Cancel"
+				-db "OK"
+			`;
+
+if($v == "OK")
+	{
+		string $newName = `promptDialog -q`;	
+		
+		if(`size($name)`==0)
+			error "Please enter a new name";
+		
+		else
+			button -edit -l $newName $buttName;
+	}
+}
+
+global proc changeSelButtSaved (string $name, string $buttName)
+{
+string $cBD[];
+string $c = `button -q -c $buttName`;
+tokenize $c " " $cBD;
+
+if(`window -q -ex saveSelEditUI`)
+	deleteUI saveSelEditUI;
+
+window -t "Edit Select List" -wh 193 324 saveSelEditUI;
+
+string $saveForm = `formLayout -nd 100`;
+
+string $scroll = `textScrollList 
+					-ams 1 
+					-dcc "selectFromList"
+					-dkc ("deleteSaveSel \"" + $name + "\" \"" + $buttName + "\"") 
+					saveSelList
+				`;
+
+for($i=2; $i<`size($cBD)`; $i++)
+	textScrollList -edit -a $cBD[$i] saveSelList;
+
+setParent $saveForm;
+
+string $save = `columnLayout -adj 1`;
+	button -l "Add" -c ("addSaveSel \"" + $name + "\" \"" + $buttName + "\"");
+	button -l "Remove" -c ("deleteSaveSel \"" + $name + "\" \"" + $buttName + "\"");
+	button -l "Remove All" -c ("deleteSaveAll \"" + $name + "\" \"" + $buttName + "\"");
+	button -l "Close" -c "deleteUI saveSelEditUI";
+
+formLayout -edit
+
+	-af $scroll "top" 0
+	-af $scroll "left" 0
+	-af $scroll "bottom" 100
+	-af $scroll "right" 0
+	
+	-ac $save "top" 0 $scroll
+	-af $save "left" 0
+	-af $save "bottom" 0
+	-af $save "right" 0 
+	
+$saveForm;
+
+showWindow saveSelEditUI;
+}
+
+global proc selectFromList()
+{
+string $obj[] = `textScrollList -q -si saveSelList`;
+select -r $obj;
+}
+
+global proc addSaveSel(string $name, string $buttName)
+{
+string $c;
+string $sel[] = `ls -sl -fl`;
+
+string $oldList[];
+string $cBD[];
+string $origC = `button -q -c $buttName`;
+tokenize $origC " " $cBD;
+
+for($i=0; $i<`size($cBD)`; $i++)
+	if($i>1)
+		$oldList[`size($oldList)`] = $cBD[$i];
+
+for($obj in $sel)
+	$oldList[`size($oldList)`] = $obj;
+
+string $newList[] = stringArrayRemoveDuplicates($oldList);
+
+textScrollList -edit -ra saveSelList;
+
+for($each in $newList)
+	{
+		$c = $c + " " + $each;
+		textScrollList -edit -a $each saveSelList;
+	}	
+button -edit -c ("select -r" + $c) $buttName;
+}
+
+global proc deleteSaveSel(string $name, string $buttName)
+{
+string $obj[] = `textScrollList -q -si saveSelList`;
+
+if(`size($obj)`==0)
+	error "Please select items to remove";
+
+string $c;
+string $oldList[];
+string $cBD[];
+string $origC = `button -q -c $buttName`;
+tokenize $origC " " $cBD;
+
+for($i=1; $i<`size($cBD)`; $i++)
+	$oldList[`size($oldList)`] = $cBD[$i];
+
+string $newList[] = stringArrayRemove($obj, $oldList);
+
+if(`size($newList)`==0)
+	button -edit -c "" $buttName;
+
+else
+	{
+		for($all in $newList)
+			$c = $c + " " + $all;
+
+		button -edit -c ("select -r" + $c) $buttName;
+	}
+	
+for($each in $obj)
+	textScrollList -edit -ri $each saveSelList;
+}
+
+global proc deleteSaveAll(string $name, string $buttName)
+{
+textScrollList -edit -ra saveSelList;
+button -edit -c "" $buttName;
+}
+
+global proc deleteSaveButt(string $name, string $buttName)
+{
+string $v = `confirmDialog
+				-t "Delete Button"
+				-m ("Are you sure you want to delete " + $name + " ?")
+				-b "Yes"
+				-b "NO"
+			`;
+
+if($v=="Yes")
+	deleteUI $buttName;
+}
+
+global proc nameSaveSelFile()
+{
+string $v = `promptDialog
+				-m "Please enter a name"
+				-t "File Name"
+				-b "OK"
+				-b "Cancel"
+				-db "OK"
+			`;
+
+if($v == "OK")
+	{
+		string $name = `promptDialog -q`;
+		checkFileName $name;
+	}
+}
+
+global proc checkFileName(string $name)
+{
+if(!`size($name)`)
+	error "Please enter a name";
+
+if($name == "recentSave")
+	error "Preset cannot be named \"recentSave\"";
+
+string $multiChar[];
+string $testName = $name + "test";
+tokenize $testName " !@#$%^&*(){}[]-_=+':;,.<>?/" $multiChar;
+$numWords = `size($multiChar)`;
+
+if($numWords > 1)
+	error "Please remove the symble from your character name \" !@#$%^&*(){}[]-_=+':;,.<>?/\"";
+
+string $projectDir = `workspace -q -rd`;
+if(`filetest -r ($projectDir + "saveSelection/" + $name + ".mel")`)
+	fileOverWrite $name;
+
+else
+	saveSelectionToFile $name;
+}
+
+global proc fileOverWrite(string $name)
+{
+string $confirm = `confirmDialog
+					-t "Overwrite File"
+					-m ("Are you sure you want to overwrite " + $name)
+					-b "Yes"
+					-b "No"
+					-db "Yes"
+					`;
+
+if($confirm == "Yes")
+	saveSelectionToFile $name;
+
+else
+	nameSaveSelFile;
+}
+
+global proc saveSelectionToFile(string $name)
+{
+string $saveDir = `workspace -q -rd` + "saveSelection";
+string $file = $saveDir + "/" + $name + ".mel";
+
+int $fileID = `fopen $file "w"`;
+fprint $fileID "{";
+	
+string $buttons[] = `columnLayout -q -ca addButtonLayout`;
+for($b=0; $b<`size($buttons)`; $b++)
+	{
+		string $buttNameBD[];
+		tokenize $buttons[$b] "_" $buttNameBD;
+		fprint $fileID ("\nstring $butt_" + $b + "[]=\n\t{\n");
+		string $cBD[];
+		string $c = `button -q -c $buttons[$b]`;
+		tokenize $c " " $cBD;
+		
+		for($i=2; $i<`size($cBD)`; $i++)
+			{
+				if($i == (`size($cBD)`-1))
+					fprint $fileID ("\t\t\"" + $cBD[$i] + "\"\n");
+				
+				else
+					fprint $fileID ("\t\t\"" + $cBD[$i] + "\",\n");
+			}
+			
+		fprint $fileID ("\t};\n\nloadSaveButt $butt_" + $b + " \"" + $buttNameBD[0] + "\";\n");
+	}
+
+fprint $fileID "}";
+fclose $fileID;
+
+window -edit -t ("Save Selection -- " + $name) saveSelUI;
+updateRecentSaveFile $name;
+
+print ("File saved to: " + $file);
+}
+
+global proc loadSelectionFromFile()
+{
+string $saveDir = `workspace -q -rd` + "saveSelection/";
+string $file = `fileDialog -dm ($saveDir + "*.mel")`;
+
+if (`filetest -r $file`)
+	{
+		clearSaveLayout;
+		file -import -type "mel" $file;
+		
+		string $fileBD[];
+		tokenize $file "/." $fileBD;
+		window -edit -t ("Save Selection -- " + $fileBD[size($fileBD)-2]) saveSelUI;
+		
+		updateRecentSaveFile $fileBD[size($fileBD)-2];
+	}
+}
+
+global proc loadSaveButt(string $sel[], string $name)
+{
+string $c;
+for($each in $sel)
+	$c = $c + " " + $each;
+
+setParent addButtonLayout;
+string $buttName = `button -l $name -c ("select -r" + $c) ($name + "_SelSaveButton")`;
+}
+
+global proc loadRecentSave(string $name)
+{
+string $saveDir = `workspace -q -rd` + "saveSelection";
+string $file = $saveDir + "/" + $name + ".mel";
+
+if (`filetest -r $file`)
+	{
+		clearSaveLayout;
+		file -import -type "mel" $file;
+		
+		updateRecentSaveFile $name;
+		
+		window -edit -t ("Save Selection -- " + $name) saveSelUI;
+	}
+else
+	error "File does not exist";
+}
+
+global proc updateRecentSaveFile(string $name)
+{
+string $recentSave = `workspace -q -rd` + "saveSelection" + "/recentSave.kgn";
+
+string $content[];
+int $fileRead = `fopen $recentSave "r"`;
+string $fileContent = `fgetline $fileRead`;
+while (`size($fileContent)` > 0 )
+	{
+		string $nameBD[];
+		tokenize $fileContent "\n" $nameBD;
+		$content[`size($content)`] = $nameBD[0];
+    	$fileContent = `fgetline $fileRead`;
+	}
+fclose $fileRead;
+
+int $i;
+string $newContent[4];
+$newContent[0] = $name;
+for($i=0; $i<`size($content)`; $i++)
+	{
+		if($content[$i] == $name)
+			continue;
+		
+		$newContent[size($newContent)] = $content[$i];
+	}
+clear $content;
+$content = $newContent;
+
+int $recentFileID = `fopen $recentSave "w"`;
+for($c=0; $c<`size($content)`; $c++)
+	{
+		if($c>3)
+			break;
+		
+		fprint $recentFileID ($content[$c] + "\n");
+	}
+fclose $recentFileID;
+
+deleteUI loadRecentSaveMenu;
+deleteUI divideSaveSel;
+deleteUI closeSaveSel;
+menuItem -p seveSelOptionMenu -l "Load Last" -sm 1 loadRecentSaveMenu;
+menuItem -p seveSelOptionMenu -d 1 divideSaveSel;
+menuItem -p seveSelOptionMenu-l "Close" -c "deleteUI saveSelUI" closeSaveSel;
+		
+for($eachMenu in $content)
+	{
+		if(!`menuItem -q -ex ($eachMenu + "_recentSaveMenu")`)
+			menuItem 
+				-p loadRecentSaveMenu 
+				-c ("loadRecentSave " + $eachMenu) -l $eachMenu 
+				($eachMenu + "_recentSaveMenu");
+	}	
+}
+
+global proc clearSaveLayout()
+{
+string $buttons[] = `columnLayout -q -ca addButtonLayout`;
+	for($all in $buttons)
+		deleteUI $all;
+	
+window -edit -t "Save Selection" saveSelUI;
+}

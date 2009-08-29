@@ -1,0 +1,202 @@
+//Keegan
+//Look At
+//lookAt
+//none
+//lookAt
+//animation
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 3.5
+
+Last Modified: (11-03-2004)
+
+Installation:
+	1.Copy this script to your script directory.
+	2.Select your eye objects.
+	3.Type "lookAt" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+Synopsis:
+	This will create a "look at control" for all selected objects.
+	Works with any number of selected objects.
+
+History:
+	v3.0
+		Added interface so the user can define the axis and global scale.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc lookAt()
+{
+
+if (!`optionVar -ex "lookAtDir"`)
+	optionVar -stringValue "lookAtDir" "0_X";
+
+if (!`optionVar -ex "lookAtGS"`)
+	optionVar -floatValue "lookAtGS" 8;
+
+string $dirOV = `optionVar -q "lookAtDir"`;
+float $gsOV = `optionVar -q "lookAtGS"`;
+
+if(`window -q -ex lookAtUI`)
+	deleteUI lookAtUI;
+
+string $dir[] = 
+	{
+		"X", 
+		"Y",
+		"Z",
+		"-X",
+		"-Y",
+		"-Z"
+	};
+
+string $dirPass[] = 
+	{
+		"0_X", 
+		"0_Y",
+		"0_Z",
+		"1_X",
+		"1_Y",
+		"1_Z"
+	};
+		
+window -t "Look At Constraint" lookAtUI;
+string $lookAtForm = `formLayout`;
+	string $optionControl = `columnLayout -adj 1 topColumn`;
+		frameLayout -lv 0;
+		radioCollection directRadio;
+			gridLayout -nc 3 -cwh 90 22;
+				for($i=0; $i<6; $i++)
+					radioButton -l $dir[$i] ("DirRadio_" + $dirPass[$i]);
+			radioButton -edit -sl ("DirRadio_" + $dirOV);
+		setParent topColumn;
+		floatSliderGrp 
+			-cw3 72 50 100
+			-adj 3
+			-l "Global Scale"
+			-f 1
+			-v $gsOV
+			-min 1
+			-max 20
+			lookGS
+			; 
+	setParent $lookAtForm;
+	
+	string $buttControl1 = `button -l "Look At Constraint" -c "lookAtConstraint"`;
+	setParent $lookAtForm;
+	
+	string $buttControl2 = `button -l "Close" -c "deleteUI lookAtUI"`;
+	
+formLayout
+	-edit
+	
+	-af $optionControl "left" 0
+	-af $optionControl "top" 0
+	-af $optionControl "bottom" 22
+	-af $optionControl "right" 0
+
+	-ap $buttControl1 "right" 0 50
+	-af $buttControl1 "bottom" 0
+	-ac $buttControl1 top 0 $optionControl
+	-af $buttControl1 "left" 0
+	
+	-af $buttControl2 "right" 0
+	-af $buttControl2 "bottom" 0
+	-ac $buttControl2 top 0 $optionControl
+	-ap $buttControl2 "left" 0 50
+	
+	$lookAtForm;
+
+window -edit -wh 248 126 lookAtUI;
+showWindow lookAtUI;
+}
+
+global proc lookAtConstraint()
+{
+string $sel[] = `ls -sl`;
+if(`size($sel)` == 0)
+	error "Please select one or more eyes";
+
+float $tTotal[];
+int $sc;
+float $gsF = `floatSliderGrp -q -v lookGS`;
+string $curves[], $dirBD[], $dirPM = "";
+string $dirLC, $dirR = `radioCollection -q -sl directRadio`;
+float $gsA[] = 
+	{
+		0,
+		0,
+		0
+	};
+		
+tokenize $dirR "_" $dirBD;
+$dirLC = `tolower $dirBD[2]`; 
+$dir = $dirLC;
+
+if($dirBD[1] == 1)
+	$gs = $gsF*-1;
+
+switch ($dir)
+	{
+		case "x":
+			$gsA[0] = $gs;
+		break;
+		
+		case "y":
+			$gsA[1] = $gs;
+		break;
+		
+		case "z":
+			$gsA[2] = $gs;
+		break;
+	}
+
+for ($eachEye in $sel)
+	{
+		float $t[] = `getAttr ($eachEye + ".t")`;
+		
+		string $lookAtCurve = `curve -n "lookAt" -d 1 -p -1 1 0 -p -1 -1 0 -p 1 0 0 -p -1 1 0`;
+		move $t[0] $t[1] 0;
+		makeIdentity -a 1 -t 1 -r 1 -s 1;
+		xform -cp;
+		
+		$curves[size($curves)] = $lookAtCurve;		
+		$tTotal = 
+			{
+				$tTotal[0] + $t[0], 
+				$tTotal[1] + $t[1], 
+				$tTotal[2] + $t[2]
+			};
+	}
+
+$sc = `size($curves)`;
+string $loc[] = `spaceLocator -p (($tTotal[0]/$sc)+$gsA[0]) (($tTotal[1]/$sc)+$gsA[1]) (($tTotal[2]/$sc)+$gsA[2])`;
+xform -cp;
+
+for($i=0; $i<$sc; $i++)
+	{
+		select -r $curves[$i];
+		setAttr ($curves[$i] + ".t" + $dir) (($tTotal[2]/$sc)+$gs);
+		makeIdentity -a 1 -t 1 -r 1 -s 1;
+		xform -cp;	
+		aimConstraint -weight 1 $curves[$i] $sel[$i];
+		aimConstraint -weight 1 $sel[$i] $curves[$i];
+		parent $curves[$i] $loc[0];
+	}
+
+select -r $loc[0];
+rename $loc[0] "lookAtControl";
+
+optionVar -stringValue "lookAtDir" ($dirBD[1] + "_" + $dirBD[2]);
+optionVar -floatValue "lookAtGS" $gsF;
+}

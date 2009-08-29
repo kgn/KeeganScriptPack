@@ -1,0 +1,816 @@
+//Keegan
+//Deform Key
+//deformKey
+//none
+//perspGraphDeformKeyDFK
+//animation
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+www.keegan3d.com
+Copyright (C) 2004 David Keegan
+
+Version: 3.5
+
+Last Modified:  (11-03-2004)
+
+Installation:
+	1.Copy this script to your script directory.
+	2.Copy "deformKey_icons" to your icons directory.
+	3.Type "deformKey" into Maya's command line.
+
+Function: Converts key frames to curves and curves to key frames.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc deformKey()
+{
+if (!`panelConfiguration -q -ex GraphPerspDeformKey`)
+	{
+		deformKeyPanel;
+		setNamedPanelLayout "Graph/Persp/Deform Key";
+	}
+
+if (`panelConfiguration -q -ex GraphPerspDeformKey`)
+	setNamedPanelLayout "Graph/Persp/Deform Key";
+}
+
+global proc deformKeyPanel()
+{
+global string $gMainPane;
+string $imagepath = `internalVar -ubd` + "deformKey_icons/";
+
+if (!`scriptedPanelType -q -exists deforKeyPanel`) 
+		scriptedPanelType
+			-createCallback "dfkCreatePanel" 
+			-addCallback    "dfkAddPanel" 
+			-removeCallback "dfkRemovePanel"
+			-deleteCallback "dfkDeletePanel"
+			-unique 1
+			deforKeyPanel;
+
+if (`panelConfiguration -q -ex GraphPerspDeformKey`)
+	deleteUI -pc GraphPerspDeformKey;
+
+panelConfiguration -label "Graph/Persp/Deform Key"
+	-defaultImage ($imagepath + "perspGraphDeformKeyDFK.xpm")
+	-image ($imagepath + "perspGraphDeformKeyDFK.xpm")
+	-sc 1
+	-configString "global string $gMainPane; paneLayout -e -cn \"top3\" -ps 1 58 38 -ps 2 42 38 -ps 3 100 62 $gMainPane;"
+	-ap 0
+		"Graph Editor"
+		"scriptedPanel"
+		("{global int $gUseMenusInPanels;\$panelName = `scriptedPanel -mbv $gUseMenusInPanels -unParent -type \"graphEditor\" -l \"Graph Editor\"`;\scriptedPanel -e  $panelName;}")
+		"scriptedPanel -edit -l \"Graph Editor\" -mbv 1 $panelName"
+	-ap 1
+		"Persp View"
+		"modelPanel"
+		("{global int $gUseMenusInPanels;\modelPanel -mbv $gUseMenusInPanels\ -unParent -l \"Persp View\" -cam persp;}" )
+		"modelPanel -edit -l \"Persp View\"  -cam \"persp\" $panelName"
+	-ap 0
+		"Deform Keyframes"
+		"scriptedPanel"
+		("{global int $gUseMenusInPanels;\$panelName = `scriptedPanel -mbv $gUseMenusInPanels -unParent -type \"deforKeyPanel\" -l \"Deform Keyframes\"`;\scriptedPanel -e  $panelName;}")
+		"scriptedPanel -edit -l \"Deform Keyframes\" -mbv 1  $panelName"
+		GraphPerspDeformKey;
+
+	if (`scriptedPanel -q -ex dfkPanel`)
+		deleteUI -pnl dfkPanel;
+		
+	$maskPanel = `scriptedPanel -mbv 1 -parent $gMainPane -l "Deform Keyframes" -type "deforKeyPanel" dfkPanel`;
+
+}
+
+global proc dfkCreatePanel(string $gMaskPanel)
+{
+}
+
+//window
+global proc dfkAddPanel( string $gMaskPanel)
+{
+string $imagepath = `internalVar -ubd` + "deformKey_icons/";
+if (! `optionVar -ex "dKeyGrid"`)
+	optionVar -intValue "dKeyGrid" 1;
+
+int $state = `optionVar -q "dKeyGrid"`;
+
+//create curves menu
+	menu
+		-l "Curves"
+		-to 0
+		-aob 1;
+	menuItem
+    	-l "Import"
+    	-c "projectViewer Import";
+	menuItem 
+		-ob 1
+		-c "ImportOptions";
+	menuItem
+    	-l "Export selected curves"
+    	-c "ExportSelection";
+	menuItem 
+		-ob 0
+		-c "ExportSelectionOptions";
+	menuItem -d 1;
+	menuItem 
+		-l "CV Curve Tool" 
+		-c "CVCurveTool";
+	menuItem 
+		-ob 1 
+		-c "CVCurveToolOptions";
+	menuItem 
+		-l "EP Curve Tool" 
+		-c "EPCurveTool";
+	menuItem 
+		-ob 1 
+		-c "EPCurveToolOptions";
+	menuItem 
+		-l "Pencil Curve Tool" 
+		-c "PencilCurveTool";
+	menuItem 
+		-ob 1 
+		-c "PencilCurveToolOptions";
+	menuItem -d 1;
+	menuItem 
+		-l "Three Point Arc Tool" 
+		-c "ThreePointArcTool";
+	menuItem 
+		-ob 1 
+		-c "ThreePointArcToolOptions";
+	menuItem 
+		-l "Two Point Arc Tool" 
+		-c "TwoPointArcTool";
+	menuItem 
+		-ob 1 
+		-c "TwoPointArcToolOptions";
+	
+//edit curves menu	
+	menu
+		-label "Edit Curves"
+		-to 0
+		-aob 1;
+	menuItem 
+		-l "View CV's" 
+		-c "ToggleCVs";
+	menuItem -d 1;
+	menuItem 
+		-l "Insert Knot" 
+		-c "InsertKnot";
+	menuItem 
+		-ob 1 
+		-c "InsertKnotOptions";
+	menuItem 
+		-l "Extend Curve" 
+		-c "ExtendCurve";
+	menuItem 
+		-ob 1 
+		-c "ExtendCurveOptions";
+	menuItem 
+		-l "Offset Curve" 
+		-c "OffsetCurve";
+	menuItem 
+		-ob 1 
+		-c "OffsetCurveOptions";
+	menuItem 
+		-l "Reverse Curve Direction" 
+		-c "ReverseCurve";
+	menuItem 
+		-ob 1 
+		-c "ReverseCurveOptions";
+	menuItem -d 1;
+	menuItem 
+		-l "Rebuild Curve" 
+		-c "RebuildCurve";
+	menuItem 
+		-ob 1 
+		-c "RebuildCurveOptions";
+	menuItem -d 1;
+	menuItem 
+		-l "Fit BSpline" 
+		-c "FitBSpline";
+	menuItem 
+		-ob 1 
+		-c "FitBSplineOptions";
+	menuItem 
+		-l "Smooth Curve" 
+		-c "SmoothCurve";
+	menuItem 
+		-ob 1 
+		-c "SmoothCurveOptions";
+	menuItem -d 1;
+	menuItem 
+		-l "Add Points" 
+		-c "AddPointsTool";
+//deform curves menu	
+	menu
+		-label "Deform"
+		-to 0
+		-aob 1;
+	menuItem 
+		-l "Create Lattice" 
+		-c "CreateLattice";
+	menuItem 
+		-ob 1 
+		-c "CreateLatticeOptions";
+	menuItem
+		-subMenu 1
+    	-label "Edit Lattice";
+	menuItem
+    	-label "Reset Lattice"
+    	-c "ResetLattice";
+	menuItem
+    	-label "Remove Lattice Tweaks"
+    	-c "RemoveLatticeTweaks";
+	setParent -menu..;
+	menuItem -d 1;
+	menuItem 
+		-l "Create Cluster" 
+		-c "CreateCluster";
+	menuItem 
+		-ob 1 
+		-c "CreateClusterOptions";
+	menuItem -d 1;
+	menuItem 
+		-l "Bend" 
+		-c "Bend";
+	menuItem 
+		-ob 1 
+		-c "BendOptions";
+	menuItem 
+		-l "Flare" 
+		-c "Flare";
+	menuItem 
+		-ob 1 
+		-c "FlareOptions";
+	menuItem 
+		-l "Sine" 
+		-c "Sine";
+	menuItem 
+		-ob 1 
+		-c "SineOptions";
+	menuItem 
+		-l "Squash" 
+		-c "Squash";
+	menuItem 
+		-ob 1 
+		-c "SquashOptions";
+	menuItem 
+		-l "Twist" 
+		-c "Twist";
+	menuItem 
+		-ob 1 
+		-c "TwistOptions";
+	menuItem 
+		-l "Wave" 
+		-c "Wave";
+	menuItem 
+		-ob 1 
+		-c "WaveOptions";
+	menuItem
+		-d 1;
+	menuItem 
+		-l "Create Sculpt Deformer" 
+		-c "CreateSculptDeformer";
+	menuItem 
+		-ob 1 
+		-c "CreateSculptDeformerOptions";
+//display menu	
+	menu
+		-label "Display"
+		-to 0
+		-aob 1;
+	menuItem
+		-cb $state
+    	-l "Grid"
+		-c "gridDisplayInDKey"
+		gridDisplayInDKey;
+	menuItem 
+		-ob 1
+		-c "GridOptions";
+	menuItem 
+		-l "Colors" 
+		-c "objectColorPalette";
+//deform menu
+	menu
+		-l "Deform Key"
+		-to 0
+		-aob 1;
+	menuItem
+    	-l "About"
+    	-c "showHelp -absolute \"http://www.keegan3d.com/deformKey/deformKey.html\"";
+	menuItem -d 1;
+	menuItem
+    	-l "Keys to curves"
+    	-c "createCurveFromKeys";
+	menuItem
+    	-l "Curves to keys"
+    	-c "deCodeCurveName 0";
+	menuItem -d 1;
+	menuItem
+		-l "Rename Curve"
+		-c "renameCurve";
+	menuItem
+		-l "Mass Rename"
+		-c "transCurve";
+	menuItem -d 1;
+	menuItem
+    	-l "Curve Info"
+    	-c "curveInfo";
+	menuItem -d 1;
+	menuItem
+    	-l "Add To Shelf"
+    	-c "addToShelf";
+ 	
+string $deformKeyForm = `formLayout -numberOfDivisions 100`;
+int $wh = 26;
+string $images = `gridLayout -nc 30 -cwh $wh $wh`;
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "CP_CurveDFK.xpm") -c "CVCurveTool" -ann "CV Curve Tool: Create a curve on the grid or live surface specifying control vertices";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "EP_CurveDFK.xpm") -c "EPCurveTool" -ann "EP Curve Tool: Create a curve on the grid or live surface specifying edit points";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "P_CurveDFK.xpm") -c "PencilCurveTool" -ann "Pencil Curve Tool: Create a curve on the grid or live surface";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "3p_CurveDFK.xpm") -c "ThreePointArcTool" -ann "Three Point Arc Tool: Create a circular arc on the grid specifying three points";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "2p_CurveDFK.xpm") -c "TwoPointArcTool" -ann "Two Point Arc Tool: Create a circular arc on the grid specifying two points";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "Add_CurveDFK.xpm") -c "AddPointsTool" -ann "Add Points Tool: Select the curve to add points";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "latDFK.xpm") -c "CreateLattice" -ann"Lattice: Create a lattice for the selected object(s)";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "bendDFK.xpm") -c "Bend" -ann "Nonlinear Bend: Select items to deform";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "flareDFK.xpm") -c "Flare" -ann "Nonlinear Flare: Select items to deform";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "sineDFK.xpm") -c "Sine" -ann "Nonlinear Sine: Select items to deform";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "squashDFK.xpm") -c "Squash" -ann "Nonlinear Squash: Select items to deform";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "twistDFK.xpm") -c "Twist" -ann "Nonlinear Twist: Select items to deform";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "waveDFK.xpm") -c "Wave" -ann "Nonlinear Wave: Select items to deform";
+iconTextButton -style "iconOnly"  -image1 ($imagepath + "sculptDFK.xpm") -c "CreateSculptDeformer" -ann "Sculpt Deformer: Select object(s)";
+iconTextButton -style "iconOnly" -image1 ($imagepath + "clstrDFK.xpm") -c "CreateCluster" -ann "Create Cluster: Select object(s)";
+text -l " ";
+iconTextButton -style "iconOnly" -image1 ($imagepath + "CVshowDFK.xpm") -ann "Toggle View CV's on/off for selected objects"-c "ToggleCVs";
+text -l " ";
+iconTextButton -style "iconOnly" -image1 ($imagepath + "kTOcDFK.xpm") -ann "Key frame animation to Curve"-c "createCurveFromKeys";
+iconTextButton -style "iconOnly" -image1 ($imagepath + "cTOkDFK.xpm") -ann "Curve to key frame animation" -c "deCodeCurveName 0";
+text -l " ";
+iconTextButton -style "iconOnly" -image1 ($imagepath + "nameDFK.xpm") -ann "Rename Curve: Select curve, then object and its desired attribute" -c "renameCurve";
+iconTextButton -style "iconOnly" -image1 ($imagepath + "massNameDFK.xpm") -ann "Mass Rename: Select any number of curves, then choose the attributes and objects that they should control" -c "transCurve";
+iconTextButton -style "iconOnly" -image1 ($imagepath + "delHisDFK.xpm") -ann "Deletes history for selected objects" -c "DeleteHistory";
+text -l " ";
+iconTextButton -style "iconOnly" -image1 ($imagepath + "redDFK.xpm") -ann "Make Selected Red (X axis)" -c "makeRed";
+iconTextButton -style "iconOnly" -image1 ($imagepath + "greenDFK.xpm") -ann "Make Selected Green (Y axis)" -c "makeGreen";
+iconTextButton -style "iconOnly" -image1 ($imagepath + "blueDFK.xpm") -ann "Make Selected Blue (Z axis)" -c "makeBlue";
+text " ";
+iconTextButton -style "iconOnly" -image1 ($imagepath + "infoDFK.xpm") -ann "Display info on selected curves" -c "curveInfo";
+
+setParent..;	
+	if (`paneLayout -q -ex deformKeyPanel`)
+		deleteUI -pnl deformKeyPanel;
+	
+string $editPane = `paneLayout -cn "vertical2" -paneSize 1 20 80 deformKeyPanel`;
+frameLayout -lv 0 -marginHeight 1 -mw 1 -bs "etchedIn";
+	channelBox -st 1 deforKeyChannelBox;
+		popupMenu;
+			menuItem -l "Key Selected" -ann "Key attribute at current time" -c "DKeySelect";
+			menuItem -l "Key All" -ann "Key all attributes at current time" -c "DKeyAll";
+			menuItem -d 1;
+			menuItem -l "Remove Keys" -ann "Remove all keyframes from attribute" -c "breakDKeyConnection";
+			
+setParent..;
+
+if (`modelEditor -q -ex dKeyView`)
+	deleteUI dKeyView;
+	
+modelEditor
+	-camera front
+	-displayAppearance wireframe
+	-allObjects 0
+	-nurbsCurves 1
+	-deformers 1
+	-grid $state 
+	dKeyView;
+
+
+formLayout
+	-edit
+	
+	-af $editPane "top" 30
+	-af $editPane "left" 0
+	-af $editPane "right" 0
+	-af $editPane "bottom" 0
+	
+	-af $images "left" 0
+	-ac $images bottom 0 $editPane
+	-af $images "top" 0
+	-af $images right 0
+
+$deformKeyForm;
+}
+
+global proc gridDisplayInDKey()
+{
+int $state = `menuItem -query -cb gridDisplayInDKey`;
+
+modelEditor -edit -grid $state dKeyView;
+optionVar -intValue "dKeyGrid" $state;
+}
+
+//channel popup
+global proc DKeySelect()
+{
+string $sel[] = `channelBox -q -mol deforKeyChannelBox`;
+string $attr[] = `channelBox -q -sma deforKeyChannelBox`;
+
+for ($each in $attr)
+	setKeyframe ($sel[0] + "." + $each);
+}
+
+global proc DKeyAll()
+{
+string $sel[] = `channelBox -q -mol deforKeyChannelBox`;
+string $attr[] = `listAttr -k`;
+
+for ($each in $attr)
+	setKeyframe ($sel[0] + "." + $each);
+}
+
+global proc breakDKeyConnection()
+{
+string $sel[] = `channelBox -q -mol deforKeyChannelBox`;
+string $attr[] = `channelBox -q -selectedMainAttributes deforKeyChannelBox`;
+
+for ($each in $attr)
+	cutKey -cl ($sel[0] + "." + $each);
+}
+	
+global proc makeRed()
+{
+string $sel[] = `ls -sl`;
+displayRGBColor -c userDefined6 1 0 0;
+
+for ($each in $sel)
+	color -ud 6 $each;	
+}
+
+global proc makeGreen()
+{
+string $sel[] = `ls -sl`;
+displayRGBColor -c userDefined7 0 1 0;
+
+for ($each in $sel)
+	color -ud 7 $each;	
+}
+
+global proc makeBlue()
+{
+string $sel[] = `ls -sl`;
+displayRGBColor -c userDefined8 0 0 1;
+
+for ($each in $sel)
+	color -ud 8 $each;	
+}
+
+global proc dfkRemovePanel( string $gMaskPanel)
+{
+}
+
+global proc dfkDeletePanel( string $gMaskPanel)
+{
+}
+
+global proc renameCurve()
+{
+string $selBD[];
+string $attrBD[];
+
+setUserColors;
+
+//selection
+string $sel[] = `ls -sl`;
+	tokenize $sel[1] "_" $selBD;
+int $numUnderSel = `size($selBD)`;
+
+//attr
+string $attr[] = `channelBox -q -sma deforKeyChannelBox`;
+	tokenize $attr[0] "_" $attrBD;
+int $numUnderAttr = `size($attrBD)`;
+
+string $newName = `rename ($sel[0]) ( "_" + $numUnderSel + "_" + $numUnderAttr + "_" +  $sel[1] + "_" + $attr[0] )`;
+
+lockCurveAttr $newName;
+colorCurve $newName $attr[0];
+}
+
+global proc createCurveFromKeys()
+{
+string $selBD[];
+
+setUserColors;
+
+string $sel[] = `ls -sl`;
+	tokenize $sel[0] "_" $selBD;
+int $numUnderSel = `size($selBD)`;
+
+string $attrSel[] = `channelBox -q -sma deforKeyChannelBox`;
+
+for ($attr in $attrSel)
+	{
+		string $attrBD[];
+		tokenize $attr "_" $attrBD;
+		int $numUnderAttr = `size($attrBD)`;
+		
+		float $time[] = `keyframe -attribute $attr -query -timeChange $sel[0]`;
+		float $value[] = `keyframe -attribute $attr -query -valueChange $sel[0]`;
+		int $numKeys = `keyframe -attribute $attr -query -kc $sel[0]`;
+		string $attrName[] = `keyframe -attribute $attr -query -name $sel[0]`;
+		
+		string $animCurve = 
+			`curve
+				-n ( "_" + $numUnderSel + "_" + $numUnderAttr + "_"+  $sel[0] + "_" + $attr )
+				-d 1
+				-p $time[0] $value[0] 0
+				-p $time[1] $value[1] 0   
+				-k 0
+				-k 1
+			`;
+		
+		for($i=2; $i<$numKeys; $i++)
+			curve 
+				-os 
+				-a 
+				-p $time[$i] $value[$i] 0 
+				$animCurve
+			;
+		
+		colorCurve $animCurve $attr;	
+		lockCurveAttr $animCurve;
+	}
+select $sel[0];
+}
+
+global proc setUserColors()
+{
+displayRGBColor -c userDefined6 1 0 0;
+displayRGBColor -c userDefined7 0 1 0;
+displayRGBColor -c userDefined8 0 0 1;	
+}
+
+global proc colorCurve(string $curve, string $attr)
+{
+if($attr == "tx" || $attr == "rx" || $attr == "sx")
+	color -ud 6 $curve;
+		
+if($attr == "ty" || $attr == "ry" || $attr == "sy")
+	color -ud 7 $curve;
+		
+if($attr == "tz" || $attr == "rz" || $attr == "sz")
+	color -ud 8 $curve;	
+}
+
+global proc lockCurveAttr(string $curve)
+{
+string $attrList[]=
+	{
+		"tz",
+		"ry",
+		"rx",
+		"sz",
+		"v"
+	};	
+	
+for($attr in $attrList)
+	{
+		setAttr -lock 1 ($curve + "." + $attr);
+		setAttr -e -keyable 0 ($curve + "." + $attr);
+	}	
+}
+
+global proc createKeysFromCurve(string $obj, string $curve, string $attr, int $cv)
+{	
+cutKey -cl ($obj + "." + $attr);
+
+for ( $i = 0; $i < $cv; $i++ )
+	{
+		float $pos[] = `pointPosition ( $curve + ".cv[" + $i + "]" )`;
+		for ($k=0; $k < $cv; $k+=$cv)
+			setKeyframe -t $pos[$k] -v $pos[$k+1] -at $attr $obj;
+	}			
+}
+
+global proc curveInfo()
+{
+if(`window -exists curveInfo`)
+	deleteUI -window curveInfo;
+
+window -t "Curve info" curveInfo;
+	paneLayout -cn "vertical2";
+	
+		columnLayout -adj 1 attrColumn;
+			text -al center "Attribute";
+			separator -st "double";
+		setParent..;
+		
+		columnLayout -adj 1 cvColumn;
+			text -al center "CVs/Keys";
+			separator -st "double";
+
+deCodeCurveName 1;		
+window -edit -wh 215 361 curveInfo;			
+}
+
+global proc curveInfoUpdate(string $obj, string $attr, int $cv)
+{
+setParent attrColumn;
+	text -al center -l ($obj+ "." + $attr);
+	separator;
+	
+setParent cvColumn;
+	text -al center -l $cv;
+	separator;
+	
+showWindow curveInfo;	
+}
+
+global proc transCurve()
+{
+if(`window -exists transCurve`)
+	deleteUI -window transCurve;
+
+window -t "Transfer Curves" transCurve;
+	string $transCurvesForm = `formLayout -numberOfDivisions 100`;
+		string $objAttrPane = `paneLayout -cn "vertical2" transCurvePane`;
+			columnLayout -adj 1 objColumn;
+				text -al center "Object";
+				separator -st "double";
+			setParent..;
+			
+			columnLayout -adj 1 transAttrColumn;
+				text -al center "Attribute";
+				separator -st "double";
+		setParent $transCurvesForm;
+		
+		string $buttCol = `columnLayout -adj 1`;
+			button -l "Transfer Curves" -c "transCurveNames";
+			button -l "Close" -c "deleteUI transCurve";
+
+formLayout
+	-edit
+	
+	-af $objAttrPane "top" 0
+	-af $objAttrPane "left" 0
+	-af $objAttrPane "right" 0
+	-af $objAttrPane "bottom" 44
+	
+	-af $buttCol "left" 0
+	-ac $buttCol "top" 0 $objAttrPane
+	-af $buttCol "bottom" 0
+	-af $buttCol "right" 0
+
+$transCurvesForm;
+			
+deCodeCurveName 2;		
+window -edit -wh 315 361 transCurve;
+}
+
+global proc transCurveUpdateUI(string $obj, string $attr, string $curve)
+{
+int $buttW = 50;
+setParent objColumn;
+text -al center -l $obj -bgc 0.35 0.55 0.7;
+rowLayout -cl2 center center -nc 2 -cw2 $buttW 1 -adj 2 $curve;
+	string $objButt = `button -w $buttW -l "Update"`;
+	string $objField = `textField -tx $obj`;
+	
+setParent transAttrColumn;
+text -al center -l $attr -bgc 0.35 0.55 0.7;
+rowLayout -cl2 center center -nc 2 -cw2 1 $buttW -adj 1;
+	string $attrField = `textField -tx $attr`;
+	string $attrButt = `button -w $buttW -l "Update"`;
+	
+button -edit -c ("updateTransField " + $objField + " 0") $objButt;
+button -edit -c ("updateTransField " + $attrField + " 1") $attrButt;
+
+showWindow transCurve;
+}
+
+global proc updateTransField(string $field, int $selStyle)
+{
+string $text;
+
+if(!$selStyle)
+	{
+		string $sel[] = `ls -sl`;
+		if(!`size($sel)`)
+			error "Select one object.";
+		$text = $sel[0];
+	}
+	
+if($selStyle)
+	{
+		string $attr[] = `channelBox -q -sma deforKeyChannelBox`;
+		if(!`size($attr)`)
+			error "Select one attribute from the deformKey channel box.";
+		$text = $attr[0];
+	}
+	
+textField -edit -tx $text $field;	
+}
+
+global proc transCurveNames()
+{
+string $objRow[] = `columnLayout -q -ca objColumn`;
+string $attrRow[] = `columnLayout -q -ca transAttrColumn`;
+
+for($i=3; $i<`size($objRow)`; $i+=2)
+	{
+		string $objBD[];
+		string $attrBD[];
+			
+		string $objContent[] = `rowLayout -q -ca $objRow[$i]`;
+		string $attrContent[] = `rowLayout -q -ca $attrRow[$i]`;
+		
+		string $obj = `textField -q -tx $objContent[1]`;
+		string $attr = `textField -q -tx $attrContent[0]`;
+		
+		//obj
+		tokenize $obj "_" $objBD;
+		int $numUnderSel = `size($objBD)`;
+		
+		//attr
+		tokenize $attr "_" $attrBD;
+		int $numUnderAttr = `size($attrBD)`;
+		
+		string $newName = `rename $objRow[$i] ( "_" + $numUnderSel + "_" + $numUnderAttr + "_" +  $obj + "_" + $attr)`;
+	}
+}
+
+global proc deCodeCurveName (int $c)
+{
+string $sel[] = `ls -sl`;
+
+for($curve in $sel)	
+	curveNameDeCoder $curve $c;
+}
+
+global proc curveNameDeCoder(string $passCurve, int $c)
+{
+string $selName, $obj, $attr, $attrName;
+
+int $degree = `getAttr ($passCurve + ".degree")`;
+int $spans = `getAttr ($passCurve + ".spans")`;
+int $cv = $degree + $spans;
+
+string $curveNameBD[];
+tokenize $passCurve "_" $curveNameBD;
+
+if(`size($curveNameBD)`<3)
+	error "Curve does not match proper naming convention";
+
+int $numUnderSel = $curveNameBD[0];
+int $numUnderAttr = $curveNameBD[1];
+		
+//get object name		
+if($numUnderSel)
+	$obj = $curveNameBD[2];
+
+		
+if($numUnderSel > 1)
+	{
+		for ($s=2; $s<$numUnderSel+1; $s++)
+			$selName = $selName + $curveNameBD[$s] + "_";
+		$obj = $selName + $curveNameBD[$numUnderSel+1];
+	}
+			
+//getAttrName			
+if($numUnderAttr)
+	$attr = $curveNameBD[$numUnderSel+$numUnderAttr+1];
+		
+if($numUnderAttr > 1)
+	{
+		for ($s=$numUnderSel+($numUnderAttr-($numUnderAttr-1))+2; $s<$numUnderSel+$numUnderAttr+2; $s++)
+			$attrName = $attrName + "_" + $curveNameBD[$s];
+		$attr = $curveNameBD[$numUnderSel+2] + $attrName;
+	}
+
+if($c==0)
+	createKeysFromCurve $obj $passCurve $attr $cv;
+
+if($c==1)
+	curveInfoUpdate $obj $attr $cv;
+
+if($c==2)
+	transCurveUpdateUI $obj $attr $passCurve;
+}
+
+global proc addToShelf()
+{
+setShelfVisible 1;
+global string $gShelfTopLevel;
+string $imagepath = `internalVar -ubd` + "deformKey_icons/";
+
+setShelfVisible 1;
+global string $gShelfTopLevel;
+
+shelfButton
+	-p ($gShelfTopLevel + "|" + `tabLayout -q -st $gShelfTopLevel`)
+	-l "Persp/Graph Editor/Deform Key" 
+	-ann "Persp/Graph Editor/Deform Key"
+	-i1 ($imagepath + "perspGraphDeformKeyDFK.xpm")
+	-c "deformKey"
+	;
+}

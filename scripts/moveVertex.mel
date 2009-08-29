@@ -1,0 +1,250 @@
+//Keegan
+//Move Vertex
+//moveVertex
+//none
+//moveVertex
+//modeling
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version 1.0
+
+Function: Allows the user to snap selected verticies to an average 
+	position or to the grid. Verticies are effected on a user defined
+	axis.
+
+Last Updated:(11-03-2004)
+
+Install 
+	1. Move moveVertex.mel to your Maya scripts directory.
+	2. Type "moveVertex" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+
+WARNING: This script sometimes irreversibly destroys the mesh 
+it is affecting. I have not been able to determine what causes
+the mesh to be destroyed because it rarely occurs. Make sure you
+save your scene before using this script. It is very useful and
+I use it all the time, but I have run into problems. David Keegan
+is not responsible for any losses that may occur.
+		
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc moveVertex()
+{
+if(!`optionVar -ex "vertexAlign"`)
+	optionVar -stringValue "vertexAlign" "Average_Radio";
+
+string $raidoSel = `optionVar -q "vertexAlign"`;
+
+if(`window -q -ex moveVertexUI`)
+	deleteUI moveVertexUI;
+
+window -t "Move Vertex" moveVertexUI;
+string $jointForm = `formLayout`;
+	string $manColControl = `columnLayout -adj 1 baseCol`;
+		frameLayout "Align Vertex";
+			string $alignForm = `formLayout`;
+					radioCollection alignRadio;
+						string $colControl1 = `columnLayout -adj 1`;
+							radioButton -al left -l "High" "High_Radio";
+							button -l "X" -c "alignVertex 0";
+						setParent $alignForm;
+							
+						string $colControl2 = `columnLayout -adj 1`;
+							radioButton -al left -l "Average" "Average_Radio";
+							button -l "Y" -c "alignVertex 1";
+						setParent $alignForm;	
+							
+						string $colControl3 = `columnLayout -adj 1`;
+							radioButton -al left -l "Low" "Low_Radio";
+							button -l "Z" -c "alignVertex 2";
+						setParent $alignForm;
+						
+			formLayout
+				-edit
+				
+				-af $colControl1 "top" 0
+				-af $colControl1 "bottom" 0
+				-af $colControl1 "left" 0
+				-ap $colControl1 "right" 0 33
+
+				-af $colControl2 "top" 0
+				-af $colControl2 "bottom" 0
+				-ac $colControl2 "left" 0 $colControl1
+				-ac $colControl2 "right" 0 $colControl3
+				
+				-af $colControl3 "top" 0
+				-af $colControl3 "bottom" 0
+				-ap $colControl3 "left" 0 66
+				-af $colControl3 "right" 0
+				
+				$alignForm;
+			
+			radioButton -edit -sl $raidoSel; 
+			
+		setParent $manColControl;
+		frameLayout "Snap To Grid";
+			string $snapForm = `formLayout`;
+					string $buttControl1 = `button -l "X" -c "snapVertex 0"`;
+					setParent $snapForm;
+							
+					string $buttControl2 = `button -l "Y" -c "snapVertex 1"`;
+					setParent $snapForm;	
+							
+					string $buttControl3 = `button -l "Z" -c "snapVertex 2"`;
+					setParent $snapForm;
+						
+			formLayout
+				-edit
+				
+				-af $buttControl1 "top" 0
+				-af $buttControl1 "bottom" 0
+				-af $buttControl1 "left" 0
+				-ap $buttControl1 "right" 0 33
+
+				-af $buttControl2 "top" 0
+				-af $buttControl2 "bottom" 0
+				-ac $buttControl2 "left" 0 $buttControl1
+				-ac $buttControl2 "right" 0 $buttControl3
+				
+				-af $buttControl3 "top" 0
+				-af $buttControl3 "bottom" 0
+				-ap $buttControl3 "left" 0 66
+				-af $buttControl3 "right" 0
+				
+				$snapForm;
+
+setParent $jointForm;
+string $closeButt = `button -l "Close" -c "deleteUI moveVertexUI"`;	
+
+formLayout
+	-edit
+	
+	-af $manColControl "top" 0
+	-af $manColControl "bottom" 22
+	-af $manColControl "left" 0
+	-af $manColControl "right" 0
+
+	-ac $closeButt "top" 0 $manColControl
+	-af $closeButt "bottom" 0
+	-af $closeButt "left" 0
+	-af $closeButt "right" 0
+	
+	$jointForm;
+
+window -edit -wh 204 151 moveVertexUI;
+showWindow moveVertexUI;
+}
+
+
+global proc alignVertex (int $dir)
+{
+string $vertex[];
+float $vT;
+string $sel[] = `ls -sl -fl`;
+
+string $radio = `radioCollection -q -sl alignRadio`;
+
+for($each in $sel)
+	{
+		float $vD;
+		string $selBD[];
+		tokenize $each ".[]" $selBD;
+		
+		if($selBD[1] == "vtx")
+			{
+				float $vp[] = `pointPosition $each`;
+		
+				$vertex[`size($vertex)`] = $each;
+				
+				if($radio == "High_Radio")
+					{
+						$vD = $vp[$dir];
+						if($vD>$vT)
+							$vT = $vD;
+					}
+				
+				if($radio == "Average_Radio")
+					$vT = $vT + $vp[$dir];
+				
+				if($radio == "Low_Radio")
+					{
+						$vD = $vp[$dir];
+						
+						if($vD<$vT)
+							$vT = $vD;
+					}
+			}
+	}
+
+int $vertexSize = `size($vertex)`;
+float $vertexMove;
+
+if($radio == "Low_Radio" || $radio == "High_Radio")
+	$vertexMove = $vT;
+	
+if($radio == "Average_Radio")
+	$vertexMove = $vT/$vertexSize;
+
+for($all in $vertex)
+	{
+		float $vp[] = `pointPosition $all`;
+		$vp[$dir] = $vertexMove;
+		move -ws $vp[0] $vp[1] $vp[2] $all;
+	}
+optionVar -stringValue "vertexAlign" $radio;
+}
+
+global proc snapVertex(int $dir)
+{
+float $gSP = `grid -q -sp`;
+int $gD = `grid -q -d`;
+
+float $gridStep = $gSP/$gD;
+
+float $newPos[];
+string $vertex[];
+
+string $sel[] = `ls -sl -fl`;
+
+for($each in $sel)
+	{
+		string $selBD[];
+		tokenize $each ".[]" $selBD;
+		
+		if($selBD[1] == "vtx")
+			{
+				float $vp[] = `pointPosition $each`;
+				
+				string $vpBD[];
+				string $vpS = $vp[$dir];
+				tokenize $vpS "." $vpBD;
+				string $vpPlusZero = ("0." + $vpBD[1]);
+				float $vpPoint = $vpPlusZero;
+				
+				int $gridLine = $vp[$dir]/$gridStep;
+				
+				if($vpPoint >= 0.5)
+					$gridLine = $gridLine + 1;
+				
+				$vertex[`size($vertex)`] = $each;
+				$newPos[`size($newPos)`] = ($gridLine * $gridStep);
+			}
+	}
+
+for($i=0; $i<`size($vertex)`; $i++)
+	{
+		float $vp[] = `pointPosition $vertex[$i]`;
+		$vp[$dir] = $newPos[$i];
+		move -ws $vp[0] $vp[1] $vp[2] $vertex[$i];
+	}
+}

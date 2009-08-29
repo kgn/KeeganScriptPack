@@ -1,0 +1,77 @@
+//Keegan
+//Restore Shape
+//restoreShape
+//none
+//restoreShape
+//animation
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 1.0
+
+Function:
+	Allows the user To modify geometry to make it easier
+	to UV map, then convert the object back to its original shape.
+
+Last Updated:(11-03-04)
+
+Install
+	1. Move restoreShape.mel to you Maya scripts directory.
+	2. Type "restoreShape" into Maya's command line.
+
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+All code and icons created by David Keegan. 
+Use and/or modify at your own risk.  
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc restoreShape()
+{
+string $sel[] = `ls -sl`;
+
+if(`size($sel)`<2)
+	error "Select your original mesh, then select all UVed objects";
+
+if(`size($sel)`>2)
+	warning "Only works on two objetcs";
+
+string $obj = $sel[0];
+
+float $objX[];
+float $objY[];
+float $objZ[];
+
+int $numPoints[] = `polyEvaluate -v $obj`;
+float $objPos[] = `xform -q -ws -rp $obj`;
+for($v=0; $v<$numPoints[0]; $v++)
+	{
+		float $pbjPP[] = `pointPosition ($obj + ".vtx[" + $v + "]")`;
+		
+		$objX[$v] = $pbjPP[0] - $objPos[0];
+		$objY[$v] = $pbjPP[1] - $objPos[1];
+		$objZ[$v] = $pbjPP[2] - $objPos[2];
+	}
+
+string $efecObj = $sel[1];
+float $efecObjPos[] = `xform -q -ws -rp $efecObj`;
+		
+int $numPointsEfec[] = `polyEvaluate -v $obj`;
+		
+if($numPoints[0] == $numPointsEfec[0])
+	{
+		for($vE=0; $vE<$numPoints[0]; $vE++)
+			{
+				
+				float $x = $objX[$vE] + $efecObjPos[0];
+				float $y = $objY[$vE] + $efecObjPos[1];
+				float $z = $objZ[$vE] + $efecObjPos[2];
+				
+				move -ws $x $y $z ($efecObj + ".vtx[" + $vE + "]");
+			}
+	}
+}

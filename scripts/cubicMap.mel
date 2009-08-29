@@ -1,0 +1,164 @@
+//Keegan
+//Cubic Mapping
+//cubicMap
+//none
+//cubicMap
+//utility
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2005 David Keegan
+www.keegan3d.com
+
+Version: 1.0
+
+Function: Cubic maps selected object.
+
+Install
+	1. Move cubicMap.mel to you Maya scripts directory.
+	2. Type "cubicMap" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc cubicMap()
+{
+string $sel[] = `ls -sl`;
+if(`size($sel)` == 0 || `size($sel)`>1)
+	error "Select one object";
+
+string $xPlus[], $xNeg[], $yPlus[], $yNeg[], $zPlus[], $zNeg[];
+
+int $face[] = `polyEvaluate -f $sel[0]`;
+
+for($i=0; $i<$face[0]; $i++)
+	{
+		vector $sphereNormal = `getNormal ($sel[0] + ".f[" + $i + "]")`;
+		
+		float $x = $sphereNormal.x;
+		float $y = $sphereNormal.y;
+		float $z = $sphereNormal.z;
+		
+		float $absX = `abs $x`;
+		float $absY = `abs $y`;
+		float $absZ = `abs $z`;
+		
+		if($absX>$absY && $absX>$absZ)
+			{
+				if($x>0)
+					$xPlus[size($xPlus)] = ($sel[0] + ".f[" + $i + "]");
+				if($x<0)
+					$xNeg[size($xNeg)] = ($sel[0] + ".f[" + $i + "]");
+			}
+		
+		if($absY>$absX && $absY>$absZ)
+			{
+				if($y>0)
+					$yPlus[size($yPlus)] = ($sel[0] + ".f[" + $i + "]");
+				if($y<0)
+					$yNeg[size($yNeg)] = ($sel[0] + ".f[" + $i + "]");
+			}
+		
+		if($absZ>$absY && $absZ>$absX)
+			{
+				if($z>0)
+					$zPlus[size($zPlus)] = ($sel[0] + ".f[" + $i + "]");
+				if($z<0)
+					$zNeg[size($zNeg)] = ($sel[0] + ".f[" + $i + "]");
+			}
+	}
+
+mapFacets $xPlus 0;
+mapFacets $xNeg 1;
+mapFacets $yPlus 2;
+mapFacets $yNeg 3;
+mapFacets $zPlus 4;
+mapFacets $zNeg 5;
+
+select -cl;
+}
+
+global proc mapFacets(string $comp[], int $p)
+{
+string $dir;
+int $u;
+int $v;
+
+if($p == 0)
+	{
+		$dir = "x";
+		$u = 1;
+		$v = 0;
+	}
+	
+if($p == 1)
+	{
+		$dir = "x";
+		$u = -1;
+		$v = 0;
+	}
+	
+if($p == 2)
+	{
+		$dir = "y";
+		$u = 0;
+		$v = 1;
+	}
+	
+if($p == 3)
+	{
+		$dir = "y";
+		$u = 0;
+		$v = 3;
+	}
+	
+if($p == 4)
+	{
+		$dir = "z";
+		$u = 0;
+		$v = 0;
+	}
+	
+if($p == 5)
+	{
+		$dir = "z";
+		$u = 0;
+		$v = 2;
+	}
+	
+if(`size($comp)`>0)
+	{
+		select -r $comp;
+		polyProjection -ch 1 -type Planar -md $dir;
+		
+		select -r $comp;
+		ConvertSelectionToUVs;
+		string $sel[] = `ls -sl`;
+		for($each in $sel)
+			polyEditUV -r 1 -u $u -v $v $each;
+	}
+}
+
+global proc vector getNormal (string $comp)
+{
+vector $normal;
+string $normalInfo[] = `polyInfo -fn $comp`;
+
+string $normBD[];
+int $numValues = `tokenize $normalInfo[0] " " $normBD`;
+
+float $x = ($normBD[$numValues-3]);
+float $y = ($normBD[$numValues-2]);
+float $z = ($normBD[$numValues-1]);
+		
+$normal = << $x, $y, $z >>;
+		
+$normal = `unit $normal`;
+
+return $normal;
+}

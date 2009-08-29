@@ -1,0 +1,100 @@
+//Keegan
+//Pre-Suf
+//preSuf
+//none
+//preSuf
+//menu
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 2.0
+Last Modified:  (11-03-2004)
+
+Installation:
+	1.Copy this script to your script directory.
+	2.Type "preSuf" into Maya's command line.
+
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+Synopsis:
+Allows the user to add prefixes and suffixes tto selected attributes.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc preSuf()
+{
+if(`window -q -ex reNameAttr`)
+	deleteUI reNameAttr;
+
+int $w = 107;
+int $w2 = 82;
+int $lW = 46;
+
+window -t "Rename Attributes" reNameAttr;
+string $preSufForm = `formLayout`;
+	string $nameControl = `columnLayout -adj 1`;
+		rowLayout -cl2 center center -nc 2 -cw2 $lW 1 -adj 2;
+			text " Prfix";
+			textField -w 77 Prfix;
+		setParent..;
+			
+		rowLayout -cl2 center center -nc 2 -cw2 $lW 1 -adj 2;
+			text " Suffix";
+			textField -w 77 Suffix;
+		setParent..;		
+	separator; 
+setParent $preSufForm;
+
+	string $buttControl1 = `button -h 30 -w 151 -l "Rename Attributes" -c "preSufRenameAttr"`;
+	string $buttControl2 = `button -h 30 -w 61 -l "Close" -c "deleteUI reNameAttr"`;
+
+formLayout
+	-edit
+	
+	-af $nameControl "top" 0
+	-af $nameControl "bottom" 22
+	-af $nameControl "left" 0
+	-af $nameControl "right" 0
+	
+	-ac $buttControl1 "top" 0 $nameControl
+	-af $buttControl1 "bottom" 0
+	-af $buttControl1 "left" 0
+	-ap $buttControl1 "right" 0 50
+
+	-ac $buttControl2 "top" 0 $nameControl
+	-af $buttControl2 "bottom" 0
+	-ap $buttControl2 "left" 0 50
+	-af $buttControl2 "right" 0
+	
+	$preSufForm;
+
+window -edit -wh 258 102 reNameAttr;
+showWindow reNameAttr;
+}
+
+global proc preSufRenameAttr()
+{
+string $sel[] = `ls -sl`;
+string $obj[] = `channelBox -q -mol mainChannelBox`;
+if ( `size $obj` == 0 )
+	error "Select an object and attributes to add to the list";
+
+string $attr[] = `channelBox -q -sma mainChannelBox`;
+if ( `size $attr` == 0 )
+	error "Select attributes to add to the list";
+
+string $pre = `textField -q -text Prfix`;
+string $suf = `textField -q -text Suffix`;
+
+for($eachAttr in $attr)
+	renameAttr ($obj[0] + "." + $eachAttr) ($pre + $eachAttr + $suf);
+
+select -r $sel;
+}

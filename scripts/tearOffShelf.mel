@@ -1,0 +1,84 @@
+//Keegan
+//Tear Off Shelf
+//tearOffShelf
+//none
+//tearOffShelf
+//utility
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 1.0
+
+Function: Creates a window containing every shelf 
+	tab and thier icons.
+
+Last Updated: (11-03-04)
+
+Install
+	1. Move tearOffShelf.mel to you Maya scripts directory.
+	2. Type "tearOffShelf" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.	
+*/
+
+global proc tearOffShelf()
+{
+global string $gShelfTopLevel;
+
+if(`window -q -ex tearOffShelf`)
+	deleteUI tearOffShelf;
+
+window -t "Tear Off Shelf" -wh 300 200 tearOffShelf;
+	string $tearOffTab = `tabLayout tearOffShelfTab`;
+	
+	string $tab[] = `tabLayout -q -ca $gShelfTopLevel`;
+	for($eachTab in $tab)
+		{
+			setParent $tearOffTab;
+			shelfLayout -cwh 34 34 $eachTab;
+			
+			string $butt[] = `shelfLayout -q -ca ($gShelfTopLevel + "|" + $eachTab)`;
+			for($eachButt in $butt)
+				{
+					int $enableCommandRepeat = `shelfButton -q -enableCommandRepeat $eachButt`;
+					int $enable = `shelfButton -q -enable $eachButt`;
+					int $width = `shelfButton -q -width $eachButt`;
+					int $height = `shelfButton -q -height $eachButt`;
+					int $manage = `shelfButton -q -manage $eachButt`;
+					int $visible = `shelfButton -q -visible $eachButt`;
+					string $annotation = `shelfButton -q -annotation $eachButt`;
+					string $label = `shelfButton -q -label $eachButt`;
+					string $imageOverlayLabel = `shelfButton -q -imageOverlayLabel $eachButt`;
+					string $image1 = `shelfButton -q -image1 $eachButt`;
+					string $style = `shelfButton -q -style $eachButt`;
+					string $command = `shelfButton -q -command $eachButt`;
+					string $doubleClickCommand = `shelfButton -q -doubleClickCommand $eachButt`;
+					
+					shelfButton
+						-parent ($tearOffTab + "|" + $eachTab)
+						-enableCommandRepeat $enableCommandRepeat
+						-enable $enable
+						-width $width
+						-height $height
+						-manage $manage
+						-visible $visible
+						-annotation $annotation 
+						-label $label
+						-imageOverlayLabel $imageOverlayLabel
+						-image1 $image1 
+						-style $style 
+						-command $command
+						-doubleClickCommand $doubleClickCommand
+						;
+				}
+		}
+showWindow tearOffShelf;
+}

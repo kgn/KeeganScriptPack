@@ -1,0 +1,319 @@
+//Keegan
+//Joint Orient
+//jointOrient
+//none
+//jointOrient
+//animation
+
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 2.0
+
+Last Updated:(05-03-2004)
+
+Function: Orientates joints by selection or hierarchy.
+
+Install 
+	1. Move jointOrient.mel to your Maya scripts directory.
+	2. Launch Maya.
+	3. Type "jointOrient" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+History:
+	v2.0 - Fixed bug that caused an error due to hierarchy naming conventions.
+	Also joints that split into multiple chains and joints that are at the end
+	of a chain have their rotation orients set to zero.
+
+	
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc jointOrient()
+{
+if (!`optionVar -exists "joTyp"`)
+	optionVar -intValue "joTyp" 1;
+
+if (!`optionVar -exists "joAimX"`)
+	optionVar -floatValue "joAimX" 0;
+
+if (!`optionVar -exists "joAimY"`)
+	optionVar -floatValue "joAimY" 0;
+
+if (!`optionVar -exists "joAimZ"`)
+	optionVar -floatValue "joAimZ" 1;
+
+if (!`optionVar -exists "joUpX"`)
+	optionVar -floatValue "joUpX" 0;
+
+if (!`optionVar -exists "joUpY"`)
+	optionVar -floatValue "joUpY" 1;
+
+if (!`optionVar -exists "joUpZ"`)
+	optionVar -floatValue "joUpZ" 0;
+
+int $type = `optionVar -q "joTyp"`;
+
+int $xa = `optionVar -q "joAimX"`;
+int $ya = `optionVar -q "joAimY"`;
+int $za = `optionVar -q "joAimZ"`;
+
+int $xu = `optionVar -q "joUpX"`;
+int $yu = `optionVar -q "joUpY"`;
+int $zu = `optionVar -q "joUpZ"`;
+
+//window
+if(`window -q -ex jointOrientUI`)
+	deleteUI jointOrientUI;
+
+int $fieldW = 80;
+int $fieldH = 22;
+int $buttW = $fieldW + 1;
+window -mb 1 -t "Joint Orient" jointOrientUI;
+menu -l "Edit";
+	menuItem
+		-l "Reset"
+		-c "resetJO"
+		-ann "Reset values to defult"
+		;
+	menuItem
+		-l "Set Values"
+		-c "rememberJO"
+		-ann "Remember current values"
+		;
+	menuItem -d 1;
+	menuItem
+		-l "Close"
+		-c "deleteUI jointOrientUI"
+		-ann "Close window"
+		;
+menu -l "Display";
+	menuItem
+		-l "Orients on selected"
+		-c "displayOrient 0"
+		-ann "Toggle local rotation axes on selected joints"
+		;
+	menuItem
+		-l "Orients on hierarchy"
+		-c "displayOrient 1"
+		-ann "Toggle local rotation axes on joint hierarchy"
+		;
+string $JOform = `formLayout`;
+string $mainControl = `columnLayout -adj 1`;
+	radioButtonGrp
+			-cl3 left left left
+			-cw3 82 80 80
+			-nrb 2 
+			-l " Orient Type" 
+			-la2 "Selected" "Hierarchy"
+			-sl $type 
+			orientRadio;
+	separator;
+
+setParent $mainControl;
+string $fieldForm = `formLayout`;
+	string $colControl1 = `columnLayout -adj 1`;
+		text " ";
+		floatField -w $fieldW -v $xa aimFieldx;
+		text " ";
+		floatField -w $fieldW -v $xu upFieldx;
+	setParent $fieldForm;
+		
+	string $colControl2 = `columnLayout -adj 1`;
+		text -fn "boldLabelFont" -l "Aim Vector";
+		floatField -w $fieldW -v $ya aimFieldy;
+		text -fn "boldLabelFont" -l "Up Vector";
+		floatField -w $fieldW -v $yu upFieldy;
+	setParent $fieldForm;
+		
+	string $colControl3 = `columnLayout -adj 1`;
+		text " ";
+		floatField -w $fieldW -v $za aimFieldz;	
+		text " ";
+		floatField -w $fieldW -v $zu upFieldz;
+	setParent $fieldForm;
+		
+	formLayout
+		-edit
+
+		-af $colControl1 "left" 0
+		-af $colControl1 "bottom" 0
+		-af $colControl1 "top" 0
+		-ap $colControl1 "right" 0 33
+	
+		-ac $colControl2 "left" 0 $colControl1
+		-af $colControl2 "bottom" 0
+		-af $colControl2 "top" 0
+		-ac $colControl2 "right" 0 $colControl3
+		
+		-ap $colControl3 "left" 0 66
+		-af $colControl3 "bottom" 0
+		-af $colControl3 "top" 0
+		-af $colControl3 "right" 0
+		
+		$fieldForm;
+
+setParent $JOform;
+	string $buttForm = `formLayout`;
+		string $buttControl1 = `button -l "Orient Joints" -ann "Orient joints and close window" -c "jointOrientCommand; deleteUI jointOrientUI"`;
+		string $buttControl2 = `button -l "Apply" -ann "Orient joints" -c "jointOrientCommand"`;
+		string $buttControl3 = `button -l "Close" -ann "Close Window" -c "deleteUI jointOrientUI"`;
+		
+	formLayout
+		-edit
+		
+		-af $buttControl1 "top" 0
+		-af $buttControl1 "bottom" 0
+		-af $buttControl1 "left" 0
+		-ap $buttControl1 "right" 0 33
+
+		-af $buttControl2 "top" 0
+		-af $buttControl2 "bottom" 0
+		-ac $buttControl2 "left" 0 $buttControl1
+		-ac $buttControl2 "right" 0 $buttControl3
+
+		-af $buttControl3 "top" 0
+		-af $buttControl3 "bottom" 0
+		-ap $buttControl3 "left" 0 66
+		-af $buttControl3 "right" 0
+		
+		$buttForm;
+setParent $JOform;
+
+formLayout
+	-edit 
+	
+	-af $mainControl "top" 0
+	-af $mainControl "bottom" 22
+	-af $mainControl "left" 0
+	-af $mainControl "right" 0
+	
+	-ac $buttForm "top" 0 $mainControl
+	-af $buttForm "bottom" 0
+	-af $buttForm "left" 0
+	-af $buttForm "right" 0
+	
+	$JOform;
+		
+window -edit -wh 270 189 jointOrientUI;
+showWindow jointOrientUI;
+}
+
+global proc resetJO()
+{
+radioButtonGrp -edit -sl 1 orientRadio;
+	
+floatField -edit -v 0 aimFieldx;
+floatField -edit -v 0 aimFieldy;
+floatField -edit -v 1 aimFieldz;
+
+floatField -edit -v 0 upFieldx;
+floatField -edit -v 1 upFieldy;
+floatField -edit -v 0 upFieldz;	
+}
+
+global proc rememberJO()
+{
+int $orientType = `radioButtonGrp -q -sl orientRadio`;
+
+$xa = `floatField -q -v aimFieldx`;
+$ya = `floatField -q -v aimFieldy`;
+$za = `floatField -q -v aimFieldz`;
+
+$xu = `floatField -q -v upFieldx`;
+$yu = `floatField -q -v upFieldy`;
+$zu = `floatField -q -v upFieldz`;
+
+optionVar -intValue "joTyp" $orientType;
+optionVar -floatValue "joAimX" $xa;
+optionVar -floatValue "joAimY" $ya;
+optionVar -floatValue "joAimZ" $za;
+optionVar -floatValue "joUpX" $xu;
+optionVar -floatValue "joUpY" $yu;
+optionVar -floatValue "joUpZ" $zu;
+}
+
+global proc displayOrient(int $value)
+{
+string $sel[] = `ls -sl`;
+
+if($value == 1)
+	select -hi;
+
+$joint = `ls -sl -typ joint`;
+
+ToggleLocalRotationAxes;
+
+select -r $sel;
+}
+
+global proc jointOrientCommand()
+{
+string $joint[];
+string $origSel[] = `ls -sl`;
+int $orientType = `radioButtonGrp -q -sl orientRadio`;
+
+if($orientType == 2)
+	select -hi;
+
+$joint = `ls -sl -typ joint`;
+
+float $xa, $ya, $za, $xu, $yu, $zu;
+$xa = `floatField -q -v aimFieldx`;
+$ya = `floatField -q -v aimFieldy`;
+$za = `floatField -q -v aimFieldz`;
+
+$xu = `floatField -q -v upFieldx`;
+$yu = `floatField -q -v upFieldy`;
+$zu = `floatField -q -v upFieldz`;
+
+for($parent in $joint)
+	{
+		string $child[] = `listConnections -d 1 -s 0 -c 0 -p 0 $parent`;
+		
+		if(`size($child)` == 1)
+			{
+				string $newJoint[] = `parent -w $child[0]`;
+				
+				string $locator[] = `spaceLocator`;
+				delete `pointConstraint -weight 1 $parent $locator[0]`;
+				move -r -ws $xu $yu $zu $locator[0];
+				setAttr ($parent + ".jo") 0 0 0;
+				delete `aimConstraint -weight 1 -aimVector $xa $ya $za -upVector $xu $yu $zu -worldUpType "object" -worldUpObject $locator[0] $newJoint[0] $parent`;
+				float $r[] = `getAttr ($parent + ".r")`;
+				setAttr ($parent + ".jo") $r[0] $r[1] $r[2];
+				setAttr ($parent + ".r") 0 0 0;
+				delete $locator;
+				
+				parent $newJoint[0] $parent;
+			}
+			
+			else
+				{
+					for($each in $child)
+						parent -w $each;
+					
+					setAttr ($parent + ".jo") 0 0 0;
+					
+					for($each in $child)
+						parent $each $parent;
+				}
+	}
+
+optionVar -intValue "joTyp" $orientType;
+optionVar -floatValue "joAimX" $xa;
+optionVar -floatValue "joAimY" $ya;
+optionVar -floatValue "joAimZ" $za;
+optionVar -floatValue "joUpX" $xu;
+optionVar -floatValue "joUpY" $yu;
+optionVar -floatValue "joUpZ" $zu;
+
+select -r $origSel;
+}

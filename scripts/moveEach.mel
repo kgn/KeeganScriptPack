@@ -1,0 +1,195 @@
+//Keegan
+//Move Each
+//moveEach
+//none
+//moveEach
+//modeling
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 3.0
+
+Last Modified:  04-28-2004
+
+Installation:
+	1.Copy this script to your script directory.
+	2.Type moveEach into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+Synopsis:
+	Similar to the incremental move function in 
+	the duplicate options, moveEach will 
+	translate, rotate and/or scale each selected 
+	object incrementally by a user defined amount.
+
+History:
+	v2.0 - Rotate and scale added. Objects are now
+	moved based on their position not from 0 0 0;
+	v3.0 - Fixed a bug that caused objects to be moved
+	incorrectly when away from 0 0 0.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+
+global proc moveEach()
+{
+int $inc[]=
+	{
+		18,
+		44,
+		74
+	};
+	
+if ( `window -q -ex moveEachUI`)
+	deleteUI moveEachUI;
+
+window -t "Move Each" moveEachUI;
+string $moveForm = `formLayout`;
+	string $moveFieldForm = `formLayout`;
+		string $labelCol = `columnLayout -adj 1`;
+			text " ";
+			text -h 22 -l "Translate " -al right;
+			text -h 22 -l "Rotate " -al right;
+			text -h 22 -l "Scale "-al right;
+		setParent $moveFieldForm;
+			
+		string $xCol = `columnLayout -adj 1`;
+			text -l "X" -al center;
+			floatField -pre 3 TranslateMEx;
+			floatField -pre 3 RotateMEx;
+			floatField -pre 3 ScaleMEx;
+		setParent $moveFieldForm;
+			
+		string $yCol = `columnLayout -adj 1`;
+			text -l "Y" -al center;
+			floatField -pre 3 TranslateMEy;
+			floatField -pre 3 RotateMEy;
+			floatField -pre 3 ScaleMEy;
+		setParent $moveFieldForm;
+			
+		string $zCol = `columnLayout -adj 1`;
+			text -l "Z" -al center;
+			floatField -pre 3 TranslateMEz;
+			floatField -pre 3 RotateMEz;
+			floatField -pre 3 ScaleMEz;
+		setParent $moveFieldForm;
+		
+	formLayout
+		-edit
+			
+		-af $labelCol "top" 0
+		-af $labelCol "bottom" 0
+		-af $labelCol "left" 0
+		-ap $labelCol "right" 0 $inc[0]
+		
+		-af $xCol "top" 0
+		-af $xCol "bottom" 0
+		-ap $xCol "left" 0 $inc[0]
+		-ap $xCol "right" 0 $inc[1]
+		
+		-af $yCol "top" 0
+		-af $yCol "bottom" 0
+		-ap $yCol "left" 0 $inc[1]
+		-ap $yCol "right" 0 $inc[2]
+	
+		-af $zCol "top" 0
+		-af $zCol "bottom" 0
+		-ap $zCol "left" 0 $inc[2]
+		-af $zCol "right" 0
+		
+		$moveFieldForm;
+	
+setParent $moveForm;
+	string $closeButt = `formLayout`;
+		string $cButtControl1 = `button -l "Move" -c "moveEachCommand"`;
+		string $cButtControl2 = `button -l "Move and Close" -c "moveEachCommand; deleteUI moveEachUI"`;
+		string $cButtControl3 = `button -l "Close" -c "deleteUI moveEachUI"`;
+		
+	formLayout
+		-edit
+		
+		-af $cButtControl1 "top" 0
+		-af $cButtControl1 "bottom" 0
+		-ap $cButtControl1 "right" 0 33
+		-af $cButtControl1 "left" 0
+		
+		-af $cButtControl2 "top" 0
+		-af $cButtControl2 "bottom" 0
+		-ac $cButtControl2 "right" 0 $cButtControl3
+		-ac $cButtControl2 "left" 0 $cButtControl1
+		
+		-af $cButtControl3 "top" 0
+		-af $cButtControl3 "bottom" 0
+		-af $cButtControl3 "right" 0
+		-ap $cButtControl3 "left" 0 66
+		
+		$closeButt;
+
+	
+formLayout
+	-edit
+	
+	-af $moveFieldForm "top" 0
+	-af $moveFieldForm "bottom" 22
+	-af $moveFieldForm "left" 0
+	-af $moveFieldForm "right" 0
+	
+	-ac $closeButt "top" 0 $moveFieldForm
+	-af $closeButt "bottom" 0
+	-af $closeButt "left" 0
+	-af $closeButt "right" 0
+	
+	$moveForm;
+
+window -edit -wh 304 137 moveEachUI;
+showWindow moveEachUI;
+}
+
+global proc moveEachCommand()
+{
+float $T[];
+$T[0] = `floatField -q -v TranslateMEx`;
+$T[1] = `floatField -q -v TranslateMEy`;
+$T[2] = `floatField -q -v TranslateMEz`;
+
+float $R[];
+$R[0] = `floatField -q -v RotateMEx`;
+$R[1] = `floatField -q -v RotateMEy`;
+$R[2] = `floatField -q -v RotateMEz`;
+
+float $S[];
+$S[0] = `floatField -q -v ScaleMEx`;
+$S[1] = `floatField -q -v ScaleMEy`;
+$S[2] = `floatField -q -v ScaleMEz`;
+
+string $attr[]=
+	{
+		"x",
+		"y",
+		"z"
+	};
+
+string $sel[] = `ls -sl`;
+
+for ($i=0; $i<`size($sel)`; $i++)
+	{
+		float $objT[]= `getAttr ($sel[$i] + ".t")`;
+		float $objR[]= `getAttr ($sel[$i] + ".r")`;
+		float $objS[]= `getAttr ($sel[$i] + ".s")`;
+		
+		setAttr ($sel[$i] + ".t") ($T[0] * $i + $objT[0]) ($T[1] * $i + $objT[1]) ($T[2] * $i + $objT[2]); 
+		setAttr ($sel[$i] + ".r") ($R[0] * $i + $objR[0]) ($R[1] * $i + $objR[1]) ($R[2] * $i + $objR[2]);
+		
+		for($s=0; $s<3; $s++)
+			if($i>0 && !$S[$s]==0)
+				setAttr ($sel[$i] + ".s" + $attr[$s]) (($S[$s]+$objS[$s])*$i); 
+	}
+}

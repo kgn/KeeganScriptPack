@@ -1,0 +1,361 @@
+//Keegan
+//Flip Shape
+//flipShape
+//none
+//flipShape
+//animation
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Technique by Mark Bamforth
+www.xvivo.net
+
+Version 3.0
+
+Last Updated:(11-03-2004)
+
+Function: This script allows the user to flip blendshapes.
+			Any number of blendshapes can be flipped at one time.
+
+Install
+	1. Move flipShape.mel to your Maya scripts directory.
+	2. Launch Maya.
+	3. Type "flipShape" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+The interface allows the user to define which axis to flip
+the shape on as well as two other options. "Combine blendshape"
+this creates two new blendshapes, one is the mirrored shape and
+the is the combination of the two. "Rename blendshape" if "on".
+After the blendshapes are created, a window is launched allowing
+the user to quickly rename the created blendshapes.\
+
+Update:
+
+	2.5:Added "Auto Rename". If on the resulting blendshapes will be 
+		automatically rename.  Ex. "Right_Smerk" will become "Left_Smerk" and the 
+		resulting combined shape will drop the direction name "Smerk".
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole,
+with out consent from David Keegan.
+*/
+
+global proc flipShape()
+{
+if (!`optionVar -ex "flipShapeDir"`)
+	optionVar -stringValue "flipShapeDir" "x";
+
+if (!`optionVar -ex "flipShapeCombine"`)
+	optionVar -intValue "flipShapeCombine" 1;
+
+if (!`optionVar -ex "flipShapeRename"`)
+	optionVar -intValue "flipShapeRename" 1;
+
+if (!`optionVar -ex "flipShapeAutoRename"`)
+	optionVar -intValue "flipShapeAutoRename" 0;
+
+string $dir = `optionVar -q "flipShapeDir"`;
+int $combine = `optionVar -q "flipShapeCombine"`;
+int $rename = `optionVar -q "flipShapeRename"`;
+int $autoRename = `optionVar -q "flipShapeAutoRename"`;
+
+if(`window -q -ex flipShapeUI`)
+	deleteUI flipShapeUI;
+
+string $radio[]=
+	{
+		"X",
+		"x",
+		"Y",
+		"y",
+		"Z",
+		"z"	
+	};
+
+window -t "Flip Shape" flipShapeUI;
+
+string $flipShapeForm = `formLayout`;
+
+string $optionControl = `columnLayout -adj 1`;
+	gridLayout -cwh 45 22 -nc 3;
+		radioCollection flipDirRadio;
+			for($i=0; $i<`size($radio)`; $i+=2)
+				radioButton -l $radio[$i] ("flipDirRadio_" + $radio[$i+1]);
+			radioButton -edit -sl ("flipDirRadio_" + $dir);
+	setParent..;
+	
+	checkBox -v $combine -al left -l "Combine Blendshape" -ann "Create another blendshape that combines both sides" combineCheck;
+	checkBox -v $autoRename -al left -l "Auto Rename" -ann "Automatically invert the direction name (Ex. Right to Left)" autoRenameCheck;
+	checkBox -v $rename -al left -l "Rename Blendshape" -ann "Launch window to rename resulting blendshapes" renameCheck;
+setParent $flipShapeForm;
+
+string $buttControl = `columnLayout -adj 1`;
+	button 
+		-l "Flip Shapes" 
+		-ann "Select the base mesh and all blendshapes to be flipped"
+		-c "flipShapeCommand"
+		;
+	button -l "Close" -c "deleteUI flipShapeUI";
+	
+formLayout
+	-edit
+	
+	-af $optionControl "left" 22
+	-af $optionControl "top" 0
+	-af $optionControl "bottom" 48
+	-af $optionControl "right" 0
+
+	-af $buttControl "left" 0
+	-af $buttControl "bottom" 0
+	-ac $buttControl top 0 $optionControl
+	-af $buttControl "right" 0
+	
+	$flipShapeForm;
+
+window -edit -wh 169 152 flipShapeUI;
+showWindow flipShapeUI;
+}
+
+global proc flipShapeCommand()
+{
+string $sel[] = `ls -sl`;
+int $sizeSel = `size($sel)`;
+
+if($sizeSel<=1)
+	error "Select the base mesh and all blendshapes to be flipped";
+
+string $base = $sel[0];
+string $finalSel[];
+
+string $radioBD[];
+string $radio = `radioCollection -q -sl flipDirRadio`;
+tokenize $radio "_" $radioBD;
+
+int $combine = `checkBox -q -v combineCheck`;
+int $autoRename = `checkBox -q -v autoRenameCheck`;
+int $rename = `checkBox -q -v renameCheck`;
+
+if(`window -q -ex flipShapeUI`)
+	deleteUI flipShapeUI;
+
+string $dir = $radioBD[1];
+
+int $amount = 0;
+
+progressWindow
+	-t "Flipping Shape..."
+	-pr $amount
+	-st "Analizing: ..."
+	-ii 1
+	;
+
+for($i=1; $i<$sizeSel; $i++)
+	{	
+		string $newShapeName, $shapeNameRemove;
+
+		string $baseDup[] = `duplicate $sel[0]`;
+		string $newBase = $baseDup[0];
+
+		string $shape = $sel[$i];
+
+		$newShapeName = $newBase;
+		$shapeNameRemove = $newBase;
+
+		string $nameBD[];
+		tokenize $shape "_" $nameBD;
+
+		if(`size($nameBD)`>1 && $autoRename)
+			{
+				string $shapeName;
+				string $invertDir;
+				string $origDir = $nameBD[0];
+
+				switch ($origDir)
+					{
+						//right
+						case "r":
+							$invertDir = "l";
+						break;
+						
+						case "right":
+							$invertDir = "left";
+						break;	
+
+						case "R":
+							$invertDir = "L";
+						break;
+
+						case "Right":
+							$invertDir = "Left";
+						break;
+						
+						case "RIGHT":
+							$invertDir = "LEFT";
+						break;
+						
+						//left	
+						case "l":
+							$invertDir = "r";
+						break;
+						
+						case "left":
+							$invertDir = "right";
+						break;	
+
+						case "L":
+							$invertDir = "R";
+						break;
+
+						case "Left":
+							$invertDir = "Right";
+						break;
+						
+						case "Left":
+							$invertDir = "RIGHT";
+						break;		
+					}
+
+				for($n=1; $n<`size($nameBD)`; $n++)
+					$shapeName = $shapeName + $nameBD[$n] + "_";
+
+				int $sizeName = size($shapeName);
+				$shapeNameRemove = `substring $shapeName 1 ($sizeName-1)`;
+
+				$newShapeName = $invertDir + "_" + $shapeNameRemove;
+
+			}
+
+		string $renameShape = `rename $newBase $newShapeName`;
+		
+		if(`progressWindow -q -ic`)
+			break;
+	
+		$amount += 1;
+	
+		progressWindow -edit -max $sizeSel -pr $amount -st ("Flipping shape: " + $shape + ". " + $i + " of " + $sizeSel);		
+
+		string $shapeDup[] = `duplicate $shape`;
+		string $newShape = $shapeDup[0];
+		
+		string $blendShape[] = `blendShape $base $newShape`;
+		setAttr ($blendShape[0] + "." + $base) 1;
+		
+		float $scale = `getAttr ($newShape + ".s" + $dir)`;
+		float $newScale = $scale*-1;
+		setAttr ($newShape + ".s" + $dir) $newScale;
+		
+		float $tOrig[] = `xform -q -ws -rp $shape`;
+		float $t[] = `xform -q -ws -rp $renameShape`;
+		move -ws $t[0] $t[1] $t[2] $newShape;
+		
+		select -r $renameShape $newShape;
+		CreateWrap;
+		setAttr ($blendShape[0] + "." + $base) 0;
+
+		string $wrapNode[] = `listConnections -d 1 -s 0 -c 0 -p 0 $newShape`;
+		string $wrapSource[] = `listConnections -d 0 -s 1 -c 0 -p 0 $wrapNode[0]`;
+		string $remove[]=
+			{
+				$newShape,
+				$renameShape,
+				$wrapNode[0] + "GroupParts",
+				$wrapNode[0] + "GroupId"
+			};
+		
+		string $wrapBase[] = stringArrayRemove($remove, $wrapSource);
+		
+		delete -ch $renameShape;
+		delete $newShape $wrapBase[0];
+		move -ws $tOrig[0] $tOrig[1] $tOrig[2] $renameShape;
+		$finalSel[`size($finalSel)`] = $renameShape;
+		
+		if($combine)
+			{
+				string $baseDup2[] = `duplicate $sel[0]`;
+				string $newBase2 = $baseDup2[0];
+				
+				string $blendShape2[] = `blendShape $renameShape $shape $baseDup2`;
+				setAttr ($blendShape2[0] + "." + $renameShape) 1;
+				setAttr ($blendShape2[0] + "." + $shape) 1;
+				
+				delete -ch $baseDup2;
+				move -ws $tOrig[0] $tOrig[1] $tOrig[2] $newBase2;
+				
+				string $renameCombine = `rename $newBase2 $shapeNameRemove`;
+				       
+				$finalSel[`size($finalSel)`] = $renameCombine;
+			}
+	}
+progressWindow -ep;
+select -r $finalSel;
+
+optionVar -stringValue "flipShapeDir" $dir;
+optionVar -intValue "flipShapeCombine" $combine;
+optionVar -intValue "flipShapeRename" $rename;
+optionVar -intValue "flipShapeAutoRename" $autoRename;
+
+if($rename)
+	renameFlipShapeUI $finalSel;
+}
+
+global proc renameFlipShapeUI (string $flipShape[])
+{	
+if(`window -q -ex shapeRenameUI`)
+	deleteUI shapeRenameUI;
+
+window -t "Rename Fliped Shapes" -wh 193 165 shapeRenameUI;
+
+string $mainForm = `formLayout -nd 100`;
+
+string $scroll = `scrollLayout -hst 0 -cr 1`;
+	columnLayout -adj 1 renameCol;
+		for($each in $flipShape)
+			{
+				rowLayout -nc 2 -cw2 1 20 -adj 1 $each;
+					textField -tx $each;
+					button -l "S" -ann ("Select " + $each) -w 20 -c ("select -r " + $each);
+				setParent..;
+			}
+setParent $mainForm;
+
+string $bottom = `columnLayout -adj 1`;
+	button -l "Rename Shapes" -c "renameFlipShape";
+	button -l "Close" -c "deleteUI shapeRenameUI";
+
+formLayout -edit
+
+	-af $scroll "top" 0
+	-af $scroll "left" 0
+	-af $scroll "bottom" 44
+	-af $scroll "right" 0
+	
+	-ac $bottom "top" 0 $scroll
+	-af $bottom "left" 0
+	-af $bottom "bottom" 0
+	-af $bottom "right" 0 
+	
+$mainForm;
+		
+showWindow shapeRenameUI;	
+}
+
+global proc renameFlipShape()
+{
+string $origNames[] = `columnLayout -q -ca renameCol`;
+
+for($all in $origNames)
+	{
+		string $rowChildren[] = `rowLayout -q -ca $all`;
+		string $newName = `textField -q -tx $rowChildren[0]`;
+		rename $all $newName;
+	}
+	
+if(`window -q -ex shapeRenameUI`)
+	deleteUI shapeRenameUI;
+}

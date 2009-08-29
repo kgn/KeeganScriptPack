@@ -1,0 +1,520 @@
+//Keegan
+//Attribute Window
+//attrWindow
+//none
+//attrWindow
+//menu
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 4.0
+
+Function: For selected channels in the channel box,
+builds a window with sliders connected to 
+those attributes and a key button.
+
+Last Updated:(11-04-04)
+
+Install 
+	Move attrWindow.mel to you Maya scripts directory.
+	Move keeganShelf to you Maya icons directory.
+	Type "attrWindow" into Maya's command line.
+	
+-To change the min and max value of an attribute, right click on the attribute slider.
+	A popup menu will appear, chose "Min/Max attribute name".  This will 
+	open a window, here enter the attributes new min and max value.
+
+-To delete an attribute, right click on the attribute slider.
+	A popup menu will appear, chose "Remove attribute name".  This will 
+	remove the attribute and resize the window.
+		
+-To save the window to the shelf, in the "Save UI" menu chose "Save To Shelf". 
+	Note: your min and max values are saved.
+	
+-To save the window to your script directory, in the "Save UI" menu chose "Save To File". 
+	Note: your min and max values are saved.  When attrWindow is open and an object which 
+	has a saved file associated with it attrWindow will automatically load the saved window.
+
+-The default min and max values can now be set in the "attrWin" menu.  The default min and max 
+	values are the min and max values of the sliders, before a user defined min and max is set.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.	
+*/
+
+
+global proc attrWindow()
+{
+attrWindowUI 1;	
+}
+
+global proc shelfCallAttrWindow()
+{
+attrWindowUI 0;	
+}
+
+global proc attrWindowUI(int $call)
+{
+int $autoLaunchAttrWin;
+
+if ( `window -exists attrWin`)
+	deleteUI attrWin;
+
+string $sel[] = `ls -sl`;
+
+window 
+	-t "Attribute Window" 
+	-mb 1 
+	attrWin;
+
+menu -l "attrWin";
+	menuItem -l "Create Shelf Button" -ann "Create shelf button to launch attrWindow" -c "createAttrWindowShelf"; 
+	menuItem -l "Set default Min/Max values" -ann "Set the min and max values to be use for new attributes" -c "setdefaultMinMaxUI";
+	menuItem -d 1;
+	menuItem -l "Clear Window" -ann "Remove all attributes from window" -c "removeAll";
+	menuItem -l "Close" -c "deleteUI attrWin"; 
+
+menu -l "Save UI";
+	menuItem -l "Save To Shelf" -ann "Save window to shelf" -c "saveAttrWin 1";
+	menuItem -l "Save To File" -ann "Save window to file" -c "saveAttrWin 0";
+
+string $attrForm = `formLayout -nd 100`;
+
+string $attrScroll = `scrollLayout -cr 1`;	
+	columnLayout -adj 1 attrCol;
+	setParent..;
+setParent..;
+		
+string $addAttr = `button -l "Add Attributes" -c "attrFinder"`;
+
+formLayout -edit
+
+	-af $attrScroll "top" 0
+	-af $attrScroll "left" 0
+	-af $attrScroll "bottom" 30
+	-af $attrScroll "right" 0
+	
+	-ac $addAttr "top" 0 $attrScroll
+	-af $addAttr "left" 0
+	-af $addAttr "bottom" 0
+	-af $addAttr "right" 0 
+	
+$attrForm;
+
+if ($call == 1)
+	attrFinder;
+
+if(`size($sel)`>0)
+	window -edit -t ("Attribute Window -- " + $sel[0]) attrWin;
+	
+showWindow attrWin;
+
+$autoLaunchAttrWin = `scriptJob -e "SelectionChanged" autoLaunchAttrWindow`;
+scriptJob -ro 1 -uid "attrWin" ("scriptJob -kill " + $autoLaunchAttrWin);
+}
+
+global proc attrFinder()
+{
+if (!`optionVar -ex "attrWinMin"`)
+	optionVar -floatValue "attrWinMin" -100;
+
+float $minVal = `optionVar -q "attrWinMin"`;
+
+if (!`optionVar -ex "attrWinMax"`)
+	optionVar -floatValue "attrWinMax" 100;
+
+float $maxVal = `optionVar -q "attrWinMax"`;
+
+int $attrCheck = 0;
+float $min[];
+float $max[];
+
+string	$attrList[];
+string	$objList[] = `channelBox -q -mol mainChannelBox`;
+string	$objAttrList[] = `channelBox -q -sma mainChannelBox`;
+int $OSize = `size($objList)`;
+
+string	$shapeList[] = `channelBox -q -sol mainChannelBox`;
+string	$shapeAttrList[] = `channelBox -q -ssa mainChannelBox`;
+int $SSize = `size($shapeList)`;
+
+string	$histList[] = `channelBox -q -hol mainChannelBox`;
+string	$histAttrList[] = `channelBox -q -sha mainChannelBox`;
+int $HSize = `size($histList)`;
+
+if ($OSize >= 1)
+	{
+		$attrCheck = 1;
+		for ($obj in $objList) 
+		    for ($attr in $objAttrList) 
+				{
+					$min [size($min)] = $minVal;
+					$max [size($max)] = $maxVal;
+					$attrList[size($attrList)] = $obj + "." + $attr;
+				}
+	}
+
+if ($SSize >= 1)
+	{
+		$attrCheck = 1;	
+		for ($obj in $shapeList) 
+		    for ($attr in $shapeAttrList) 
+				{
+					$min [size($min)] = $minVal;
+					$max [size($max)] = $maxVal;
+					$attrList[size($attrList)] = $obj + "." + $attr;
+				}
+	}
+	
+if ($HSize >= 1)
+	{
+		$attrCheck = 1;
+		for ($obj in $histList) 
+		    for ($attr in $histAttrList)
+				{
+					$min [size($min)] = $minVal;
+					$max [size($max)] = $maxVal;
+					$attrList[size($attrList)] = $obj + "." + $attr;
+				}
+	}
+	
+if (`size($attrList)` > 0)
+	addAttrToWin $attrList $min $max;
+
+if (`size($attrList)` == 0)	
+	autoLaunchAttrWindow;
+}
+
+global proc addAttrToWin (string $attrList[], float $min[], float $max[])
+{
+int $nameW;
+string $windowTBD[];
+string $attrTBD[];
+string $windowT = `window -q -t attrWin`;
+tokenize $windowT "- " $windowTBD;
+if(`size($windowTBD)`<=2)
+	{
+		tokenize $attrList[0] "." $attrTBD;
+		window -edit -t ("Attribute Window -- " + $attrTBD[0]) attrWin;
+	}
+setParent attrCol;
+
+for ($i=0; $i<`size($attrList)`; $i++)
+	if ( `size($attrList[$i])` > $nameW )
+		$nameW = `size($attrList[$i])`;
+
+for ($i=0; $i<`size($attrList)`; $i++)
+	{
+		string $attrBD[];
+		tokenize $attrList[$i] "." $attrBD;
+		
+		if (`rowLayout -q -ex ($attrBD[0] + $attrBD[1])`)
+			deleteUI ($attrBD[0] + $attrBD[1]);
+		
+		rowLayout
+			-nc 2
+			-cw2 195 40
+			-cl2 center center
+			-adj 1
+			($attrBD[0] + $attrBD[1])
+			;
+		attrFieldSliderGrp
+			-min $min[$i]
+			-max $max[$i]
+			-at $attrList[$i]
+			-adj 3
+			-cw4 (($nameW*6)+15) 50 100 1
+			-pre 3
+			;
+		popupMenu;
+			menuItem -l ("Min/Max " + $attrList[$i]) -c ("changeAttrMinMaxWin " + $attrBD[0] + $attrBD[1] + " " + $attrList[$i]);
+			menuItem -l ("Remove " + $attrList[$i]) -c ("removeAttr " + $attrBD[0] + $attrBD[1]);
+		button
+			-l "Key"
+			-w 40
+			-c ( "setKeyframe " + $attrList[$i] );
+		setParent..;
+	}
+
+if(`size($attrList)`>0)		
+	attrWinResize;	
+}
+
+global proc setdefaultMinMaxUI()
+{
+if (!`optionVar -ex "attrWinMin"`)
+	optionVar -floatValue "attrWinMin" -100;
+
+float $min = `optionVar -q "attrWinMin"`;
+
+if (!`optionVar -ex "attrWinMax"`)
+	optionVar -floatValue "attrWinMax" 100;
+
+float $max = `optionVar -q "attrWinMax"`;
+
+if (`window -q -ex defaultMinMax`)
+	deleteUI defaultMinMax;
+
+window -t "Default Min/Max" defaultMinMax;
+columnLayout;
+
+int $wT = 25;
+int $wF = 65;
+rowLayout -cl2 center center -nc 4 -cw4 $wT $wF $wT $wF;
+	text " Min";
+	floatField -pre 2 -v $min -w $wF defaultMinField;
+	text " Max";
+	floatField -pre 2 -v $max -w $wF defaultMaxField;
+setParent..;
+
+int $wBMM = 139;
+int $wBC = 40;	
+rowLayout -cl2 center center -nc 2 -cw2 $wBMM $wBC;
+	button -w $wBMM -ann "Set default min and max values" -l "Set Min/Max" -c "setDefaultMinMax";
+	button -w $wBC -ann "Close" -l "Close" -c "deleteUI defaultMinMax";
+window -edit -wh 184 68 defaultMinMax;
+showWindow;	
+} 
+
+global proc setDefaultMinMax()
+{
+float $min = `floatField -q -v defaultMinField`;
+float $max = `floatField -q -v defaultMaxField`;
+
+if (`window -q -ex defaultMinMax`)
+	deleteUI defaultMinMax;
+
+optionVar -floatValue "attrWinMin" $min;
+optionVar -floatValue "attrWinMax" $max;	
+}
+
+global proc removeAttr (string $row)
+{
+if (`rowLayout -q -ex $row`)
+	deleteUI $row;
+
+attrWinResize;
+}
+
+global proc removeAll()
+{
+string $rowLayout[] = `columnLayout -q -ca attrCol`;
+for($each in $rowLayout)
+	deleteUI $each;
+	
+attrWinResize;
+}
+
+global proc attrWinResize()
+{
+string $rowLayout[] = `columnLayout -q -ca attrCol`;
+int $numOfAttr = `size($rowLayout)`;
+
+if($numOfAttr>35)
+	$numOfAttr = 35;
+
+window -edit -h (130+($numOfAttr*22)) attrWin;
+}
+
+global proc changeAttrMinMaxWin (string $row, string $attr)
+{
+string $rowChildren[] = `rowLayout -q -ca $row`;
+float $min = `attrFieldSliderGrp -q -min $rowChildren[0]`;
+float $max = `attrFieldSliderGrp -q -max $rowChildren[0]`;
+
+if (`window -q -ex minMax`)
+	deleteUI minMax;
+
+window -t ("Min/Max " + $attr) minMax;z
+columnLayout;
+
+int $wT = 25;
+int $wF = 65;
+rowLayout -cl2 center center -nc 4 -cw4 $wT $wF $wT $wF;
+	text " Min";
+	floatField -pre 2 -v $min -w $wF minField;
+	text " Max";
+	floatField -pre 2 -v $max -w $wF maxField;
+setParent..;
+
+int $wBMM = 139;
+int $wBC = 40;	
+rowLayout -cl2 center center -nc 2 -cw2 $wBMM $wBC;
+	button -w $wBMM -ann "Set slider min and max values" -l "Set Min/Max" -c ("changeAttrMinMax " + $rowChildren[0]);
+	button -w $wBC -ann "Close" -l "Close" -c "deleteUI minMax";
+window -edit -wh 184 68 minMax;
+showWindow;
+}
+
+global proc changeAttrMinMax (string $slider)
+{
+float $min = `floatField -q -v minField`;
+float $max = `floatField -q -v maxField`;
+
+if ($min>=$max)
+	error "Minimum value greater than or equal to maximum";
+
+attrFieldSliderGrp -edit -min $min -max $max $slider;
+
+if (`window -q -ex minMax`)
+	deleteUI minMax;
+}
+
+global proc saveAttrWin (int $save)
+{
+string $attr;
+string $min;
+string $max;
+string $transAttr[];
+string $transAttrMin[];
+string $transAttrMax[];
+string $attrList;
+string $attrListMin;
+string $attrListMax;
+string $attrBD[];
+int $numAttr;
+
+string $row[] = `columnLayout -q -ca attrCol`;
+for($each in $row)
+	{
+		string $slider[] = `rowLayout -q -ca $each`;
+		$numAttr = (`size($slider)`/2);
+		for ($i=0; $i<$numAttr; $i+=2)
+			{
+				$attr = `attrFieldSliderGrp  -q -at $slider[$i]`;
+				$min = `attrFieldSliderGrp  -q -min $slider[$i]`;
+				$max = `attrFieldSliderGrp  -q -max $slider[$i]`;
+				
+				$transAttr[`size($transAttr)`] = $attr;
+				$transAttrMin[`size($transAttrMin)`] = $min;
+				$transAttrMax[`size($transAttrMax)`] = $max;
+			}
+	}
+
+for($a=0; $a<(`size($transAttr)`-1); $a++)
+	{
+		$attrList = $attrList + "\n\t\t\"" + $transAttr[$a] + "\",";
+		$attrListMin = $attrListMin + "\n\t\t" + $transAttrMin[$a] + ",";
+		$attrListMax = $attrListMax + "\n\t\t" + $transAttrMax[$a] + ",";		
+	}
+
+tokenize $transAttr[0] "." $attrBD;
+
+string $header = "//attrWindow By David Keegan\n//E-mail David at eyelink@sbcglobal.net\n//www.keegan3d.com\n\n{\n";
+string $winCall = "shelfCallAttrWindow;\n\n";
+string $attrString = "string $attrList[] =\n\t{" + $attrList + "\n\t\t\"" + $attr + "\"\n\t};";
+string $attrMin = "\n\nfloat $attrListMin[] =\n\t{" + $attrListMin + "\n\t\t" + $min + "\n\t};";
+string $attrMax = "\n\nfloat $attrListMax[] =\n\t{" + $attrListMax + "\n\t\t" + $max + "\n\t};";
+string $passAttr = "\n\naddAttrToWin $attrList $attrListMin $attrListMax;\n}";
+
+string $buildButton = $header + $winCall + $attrString + $attrMin + $attrMax + $passAttr;	
+
+if($save == 0)
+	saveAttrWindowToFile $buildButton $attrBD[0];
+
+if($save == 1)
+	saveAttrWindowToShelf $buildButton $attrBD[0];
+}
+
+global proc saveAttrWindowToFile (string $content, string $obj)
+{
+string $scriptPath = `internalVar -usd`;
+string $mayaFile = `file -q -sceneName`;
+string $file;
+string $fileNameBD[];
+string $mayaFile = `file -q -sceneName`;
+
+//make dir
+int $attrWindowDirExists = `filetest -d ($scriptPath + "attrWindows")`;
+if ($attrWindowDirExists == 0) 
+	{
+		chdir $scriptPath;
+		system "mkdir attrWindows";
+	}
+
+if(`size($mayaFile)` > 0)
+	{
+		tokenize $mayaFile "/." $fileNameBD;
+		string $fileName = $fileNameBD[`size($fileNameBD)`-2];
+			
+		int $sceneDirExists = `filetest -d ($scriptPath + "attrWindows/" + $fileName)`;
+		if ($sceneDirExists == 0) 
+			{
+				chdir ($scriptPath + "attrWindows/");
+				system ("mkdir " +  $fileName);
+			}
+		$file = $scriptPath + "attrWindows/" + $fileName + "/" + $obj + ".mel";
+	}
+	
+else
+	$file = $scriptPath + "attrWindows/" + $obj + ".mel";
+
+//make file	
+int $fileID = `fopen $file "w"`;
+fprint $fileID $content;
+fclose $fileID;
+print ("File saved to: " + $file);
+}
+
+global proc createAttrWindowShelf()
+{
+setShelfVisible 1;
+global string $gShelfTopLevel;
+
+shelfButton
+	-parent ($gShelfTopLevel + "|" + `tabLayout -q -st $gShelfTopLevel`)
+	-l ("attrWindow")
+	-ann ("Launch attrWindow")
+	-i1 (`internalVar -ubd` + "attrWindow.xpm") 
+	-c "attrWindow"
+	;	
+}
+
+global proc saveAttrWindowToShelf (string $content, string $obj)
+{
+setShelfVisible 1;
+string $imagepath = `internalVar -ubd` + "keeganShelf/";
+global string $gShelfTopLevel;
+
+shelfButton
+	-parent ($gShelfTopLevel + "|" + `tabLayout -q -st $gShelfTopLevel`)
+	-l ("attrWindow for : " + $obj)
+	-ann ("attrWindow for : " + $obj)
+	-i1 ($imagepath + "attrWindow.xpm")
+	-c $content
+	;	
+}
+
+global proc autoLaunchAttrWindow()
+{
+if(`window -q -ex attrWin`)
+	{
+		string $sel[] = `ls -sl`;
+		string $file;
+		
+		string $scriptPath = `internalVar -usd`;
+		string $mayaFile = `file -q -sceneName`;
+		
+		if(`size($mayaFile)` > 0)
+			{
+				string $fileNameBD[];
+				string $mayaFile = `file -q -sceneName`;
+				tokenize $mayaFile "/." $fileNameBD;
+				string $fileName = $fileNameBD[`size($fileNameBD)`-2];	
+				
+				$file = $scriptPath + "attrWindows/" + $fileName + "/" + $sel[0] + ".mel";
+			}
+		
+		else
+			$file = $scriptPath + "attrWindows/" + $sel[0] + ".mel";
+			
+		int $fileExists = `filetest -r $file`;
+		if ($fileExists == 1)
+			file -import -type "mel" -rpr $sel[0] $file;
+	}
+}
+                        

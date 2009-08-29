@@ -1,0 +1,80 @@
+//Keegan
+//Curve Decompiler
+//curveDecompiler
+//none
+//curveDecompiler
+//rigging
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+
+Version: 1.0
+
+Function: Creates a shelf button that creates a selected curve.
+	For easily making custom animation controls.
+
+Install 
+	1. Move curveDecompiler.mel to you Maya scripts directory.
+	2. Type "curveDecompiler" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+proc addToShelf(string $label, string $command)
+{
+setShelfVisible 1;
+global string $gShelfTopLevel;
+string $imagepath = `internalVar -ubd` + "keeganShelf/";
+shelfButton
+	-parent ($gShelfTopLevel + "|" + `tabLayout -q -st $gShelfTopLevel`)
+	-l ("Decompiled curve: " + $label)
+	-ann ("Decompiled curve: " + $label)
+	-i1 ($imagepath + "curveDecompiler.xpm")
+	-c $command
+	;
+}
+
+global proc curveDecompiler()
+{
+string $command = "{\n";
+string $curve[];
+string $curveShape[];
+string $sel[] = `ls -sl -typ "transform"`;
+for($each in $sel)
+	{
+		string $shape[] = `listRelatives -s $each`;
+		if(`size($shape)` == 0)
+			continue;
+		
+		string $node = `nodeType $shape[0]`;
+		if($node == "nurbsCurve")
+			{
+				$curve[size($curve)] = $each;
+				$curveShape[size($curveShape)] = $shape[0];
+			}
+	}
+
+for($i=0; $i<`size($curve)`; $i++)
+	{
+		string $curveCode = "string $curve" + $i + " = `curve ";
+		int $degree = `getAttr ($curveShape[$i] + ".degree")`;
+		int $spans = `getAttr ($curveShape[$i] + ".spans")`;
+		int $cv = $degree + $spans;
+		$curveCode += "-d " + $degree + " ";
+		for($p=0; $p<$cv; $p++)
+			{
+				vector $pp = `pointPosition -w ($curve[$i] + ".cv[" + $p + "]")`;
+				$curveCode += "-p " + $pp + " ";
+			}
+		$command += $curveCode + "`;\n";
+	}
+	
+$command += "select -cl;\n}";
+addToShelf $curve[0] $command;
+}

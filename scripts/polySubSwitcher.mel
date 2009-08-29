@@ -1,0 +1,210 @@
+//Keegan
+//Poly-Sub Switcher
+//polySubSwitcher
+//none
+//polySubSwitcher
+//animation
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version 2.0
+
+Function: Toggles selected objects between Sub-D and poly, 
+        similar to Lightwave.
+
+Last Updated:(08-31-04)
+
+Install 
+	1. Move polySubSwitcher.mel to your Maya scripts directory.
+	2. Create a hotkey that executes "polySubSwitcher;".
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+Update:
+	1.5-Now works in component mode, and the object's transforms are kept. 
+	2.0-polySubSwitcher works differently based on the selection.
+			Poly object selected - converted to Sub-d.
+			Sub-d object selected - converted to polygon.
+			Poly component selected - converted to sub-d with a poly cage and component selection retained.
+			Sub-d component selected - converted to polygon.
+			Sub-d poly cage components selected - converted to polygon and component selection retained.
+			Sub-d poly cage selected - converted to polygon.
+	
+		If the geometry is in a hierarchy it is converted with no effect to 
+		other members of the hierarchy; objects with children cannot be 
+		converted with component selection. Currently only the last selected 
+		object and its selected component remain selected, soon to be fixed.
+		
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc polySubSwitcher()
+{
+string $selA[], $selC[], $geoSel[];
+
+string $sel[] = `ls -fl -sl`;
+for($each in $sel)
+	{
+		int $proxy = 0;
+		string $selBD[];
+		tokenize $each "." $selBD;
+		
+		if(`size($selBD)`>1)
+			{
+				$proxy = 1;
+				$selC[`size($selC)`] = $each;
+			}
+		
+		$selA[`size($selA)`] = $selBD[0] + "*" + $proxy;
+	}
+	
+string $selM[] = stringArrayRemoveDuplicates($selA);
+for($all in $selM)
+	{
+		string $allBD[], $passComp[], $obj;
+		int $proxy;
+		tokenize $all "*" $allBD;
+		$obj = $allBD[0];	
+		$proxy = $allBD[1];
+		
+		if($proxy==1)
+			{
+				for($each in $selC)
+					{
+						if (`match $obj $each`==$obj);
+							$passComp[`size($passComp)`] = $each;
+					}
+			}
+		else
+			$passComp[0] = "nothing";
+		
+		polySubConvert $all $passComp;
+	}
+}
+
+global proc polySubConvert (string $in, string $comp[])
+{
+string $inBD[], $compSel[], $geoSel[], $obj, $proxyMesh;
+int $n = 0;
+int $pProxy = 0;
+int $proxy;
+
+tokenize $in "*" $inBD;
+$obj = $inBD[0];	
+$proxy = $inBD[1];
+
+if($proxy==1)
+	{
+		string $selBD[];
+		for($each in $comp)
+			{
+				tokenize $each "." $selBD;
+				$compSel[`size($compSel)`] = $selBD[1];
+			}
+	}
+
+string $conn[] = `listConnections -s 0 -d 1 -p 0 -c 0 $obj`;
+if(`size($conn)`>0)
+	{
+		string $connNode = `nodeType $conn[0]`;
+		if($connNode=="polyToSubdiv")
+			{
+				string $objName[] = `listConnections -s 0 -d 1 -p 0 -c 0 $conn[0]`;
+				$obj = $objName[0];
+				$proxyMesh = $obj;
+				$pProxy = 1;
+			}
+	}
+
+delete -ch $obj;
+
+string $selS[] = `listRelatives -s $obj`;
+if(`size($selS)`>1)
+	delete $selS[1];
+
+string $node = `nodeType $selS[0]`;
+string $newGeo[];
+
+if($node=="mesh")
+	$n = 1;
+
+if($node=="subdiv")
+	$n = 2;
+				
+switch ($n)
+	{
+		case 0:
+			warning "Only works on polygons or subdivision surfaces";
+		break;
+				
+		case 1:
+			{
+				int $maxVertex;
+				int $maxFace[] = `polyEvaluate -f $obj`;
+				int $numVertex[] = `polyEvaluate -v $obj`;
+						
+				for($v=0; $v<$numVertex[0]; $v++)
+					{
+						string $newList[];
+						string $vertToEdge[] = `polyInfo -ve ($obj + ".vtx[" + $v + "]")`;
+						tokenize $vertToEdge[0] "VERTEX :" $newList;
+								
+						if(`size($newList)`>$maxVertex)
+							$maxVertex = `size($newList)`;				
+					}
+						 
+				$newGeo = 
+					`polyToSubdiv 
+					-ap 0
+					-ch 0 
+					-aut 1 
+					-mpc $maxFace[0]
+					-me $maxVertex
+					$selS[0]
+					`;
+				subdivDisplaySmoothness 
+					-smoothness 3 
+					$obj
+					;
+				
+				if($proxy==1)
+					$proxyMesh = `subdGivenIntoPolyMode $obj 1 0 0 0`;
+			}
+		break;
+				
+		case 2:	
+			{
+				$newGeo =
+					`subdToPoly 
+					-ch 0 
+					-aut 1
+					-format 0 
+					-epp 1 
+					-suv 1
+					$selS[0]
+					`;
+				if($pProxy == 0)
+					$proxy = 0;
+				polySoftEdge -a 0 -ch 0 $obj;
+			}
+		break;
+	}
+
+if($n>0)
+	{
+		delete $selS[0];
+		string $newName = `rename $newGeo $selS[0]`;
+		if($proxy==1)
+			for($each in $compSel)
+				$geoSel[`size($geoSel)`] = $proxyMesh + "." + $each;
+		else
+			$geoSel[`size($geoSel)`] = $obj;
+	}
+select -r $geoSel;
+}

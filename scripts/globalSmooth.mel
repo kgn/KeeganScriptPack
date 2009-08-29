@@ -1,0 +1,356 @@
+//Keegan
+//Global Smooth
+//globalSmooth
+//none
+//globalSmooth
+//modeling
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 2.0
+
+Function:
+	Creates a window containing options for
+	every smooth node on the scene.
+
+Last Updated: (11-03-2004)
+
+Install: 
+	1.Move globalSmooth.mel to your Maya scripts directory.
+	2.Type "globalSmooth" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+Update:
+	1.5 - Tabs and sliders are now named based on the object 
+	not the smooth node, and the "Smooth Divisions" tab is 
+	now a scroll layout allowing the interface to remain small 
+	but still contain multiple nodes.  I have also included a 
+	shelf button.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc globalSmooth()
+{
+string $smoothNode[] = `ls -typ polySmoothFace`;
+int $sizeSmooth = `size($smoothNode)`;
+if ($sizeSmooth == 0)
+	error "No smooth nodes found";
+
+string $tabName[];
+for($each in $smoothNode)
+{
+	string $historyNodes[];
+	string $con[] = `listConnections -d 1 -s 0 -p 0 -c 0 $each`;
+	string $upPick = $con[0];
+	while(`size($upPick)`>0)
+		{
+			string $con[] = `listConnections -d 1 -s 0 -p 0 -c 0 $upPick`;
+			if(`size($con[0])` == 0)
+				{
+					$historyNodes[`size($historyNodes)`] = $upPick;
+					$upPick = "";
+				}
+			else
+				{
+					$upPick = "";
+					$upPick = $con[0];
+					$historyNodes[`size($historyNodes)`] = $upPick;
+				}
+		}
+	$tabName[`size($tabName)`] = $historyNodes[`size($historyNodes)`-1];	
+}
+
+string $MayaBD[];
+string $Maya = `about -version`;
+tokenize $Maya "." $MayaBD;
+int $vir = $MayaBD[0];
+
+if($vir<4)
+	warning "Not tested with Maya 4 or below";
+
+if (`window -q -ex globalSmoothUI`)
+	deleteUI globalSmoothUI;
+
+int $lW = 120;
+int $sW = 98;
+int $cH = 50;
+int $cb = 100;
+
+window -t "Global Smooth" globalSmoothUI;
+	
+string $winForm = `formLayout -numberOfDivisions 100`;
+string $nodeControl = `tabLayout -imw 2 -imh 2 `;
+	scrollLayout -cr 1 -hst 0 "Smooth Divisions";
+		columnLayout -adj 1;
+		for ($i=0; $i<$sizeSmooth; $i++)
+			{
+				int $getDivisions = `getAttr ($smoothNode[$i] + ".divisions")`;
+				intSliderGrp
+					-f 1
+					-cw3 $lW $sW 20
+					-adj 3
+					-min 0
+					-max 4
+					-l $tabName[$i]
+					-cc ("gSmoothIntChange " + $smoothNode[$i] + " DivisionAll divisions")
+					-v $getDivisions
+					($smoothNode[$i] + "DivisionAll");	
+			}
+		setParent..;
+	setParent..;
+	
+	for ($i=0; $i<$sizeSmooth; $i++)
+		{				
+			columnLayout -adj 1 $tabName[$i];				
+			//method 
+				int $getMethod = `getAttr ($smoothNode[$i] + ".method")`+1;
+				radioButtonGrp 
+					-cw3 $lW 100 100
+					-nrb 2 
+					-l "Method" 
+					-la2 "Exponential" "Linear"
+					-on1 ("setAttr " + $smoothNode[$i] + ".method 0")
+					-on2 ("setAttr " + $smoothNode[$i] + ".method 1")
+					-sl $getMethod;
+				
+			//continuity
+				float $getContinuity = `getAttr ($smoothNode[$i] + ".continuity")`;
+				floatSliderGrp
+					-f 1
+					-cw3 $lW $sW 20
+					-min 0
+					-max 1
+					-l "Continuity"
+					-dc ("gSmoothFloatChange " + $smoothNode[$i] + " Continuity continuity")
+					-v $getContinuity
+					($smoothNode[$i] + "Continuity");
+				
+			// Divisions
+				int $getDivisions = `getAttr ($smoothNode[$i] + ".divisions")`;
+				intSliderGrp
+					-f 1
+					-cw3 $lW $sW 20
+					-min 0
+					-max 4
+					-l "Divisions"
+					-cc ("gSmoothIntChange " + $smoothNode[$i] + " Division divisions")
+					-v $getDivisions
+					($smoothNode[$i] + "Division");
+
+			//on/off commands
+			if($vir<5)
+				{				
+					rowLayout -nc 2 -cw2 ($cb+$lW+20) $cb -cat 1 left ($lW+1);
+						int $getBoarder = `getAttr ($smoothNode[$i] + ".keepBorder")`;
+							checkBox 
+								-l "Keep Border" 
+								-onc ("setAttr " + $smoothNode[$i] + ".keepBorder 1")
+								-ofc ("setAttr " + $smoothNode[$i] + ".keepBorder 0")
+								-v $getBoarder;
+						int $getSelBoarder = `getAttr ($smoothNode[$i] + ".keepSelectionBorder")`;
+							checkBox 
+								-l "Keep Selection Border" 
+								-onc ("setAttr " + $smoothNode[$i] + ".keepSelectionBorder 1")
+								-ofc ("setAttr " + $smoothNode[$i] + ".keepSelectionBorder 0")									
+								-v $getSelBoarder;
+					setParent..;
+				}
+				
+			if($vir>=5)
+				{
+					rowLayout -nc 3 -cw3 ($cb+40) $cb $cb -cat 1 left 40;
+				int $getSmoothUV = `getAttr ($smoothNode[$i] + ".smoothUVs")`;
+							checkBox 
+								-l "Smooth UVs" 
+								-onc ("setAttr " + $smoothNode[$i] + ".smoothUVs 1")
+								-ofc ("setAttr " + $smoothNode[$i] + ".smoothUVs 0")
+								-v $getSmoothUV
+								;
+						int $getBoarder = `getAttr ($smoothNode[$i] + ".keepBorder")`;
+							checkBox 
+								-l "Keep Border" 
+								-onc ("setAttr " + $smoothNode[$i] + ".keepBorder 1")
+								-ofc ("setAttr " + $smoothNode[$i] + ".keepBorder 0")
+								-v $getBoarder;
+						int $getSelBoarder = `getAttr ($smoothNode[$i] + ".keepSelectionBorder")`;
+							checkBox 
+								-l "Keep Selection Border" 
+								-onc ("setAttr " + $smoothNode[$i] + ".keepSelectionBorder 1")
+								-ofc ("setAttr " + $smoothNode[$i] + ".keepSelectionBorder 0")									
+								-v $getSelBoarder;
+				setParent..;
+				}	
+					
+				if($vir<5)
+					rowLayout -nc 2 -cw2 ($cb+$lW+20) $cb -cat 1 left ($lW+1);
+										
+				if($vir>=5)
+					rowLayout -nc 2 -cw2 ($cb+110) $cb -cat 1 left 90;
+				
+						int $getHardEdge = `getAttr ($smoothNode[$i] + ".keepHardEdge")`;
+							checkBox 
+								-l "Keep Hard Edge" 
+								-onc ("setAttr " + $smoothNode[$i] + ".keepHardEdge 1")
+								-ofc ("setAttr " + $smoothNode[$i] + ".keepHardEdge 0")									
+								-v $getHardEdge;
+						int $getTess = `getAttr ($smoothNode[$i] + ".keepTessellation")`;
+							checkBox 
+								-l "Keep Tessellation" 
+								-onc ("setAttr " + $smoothNode[$i] + ".keepTessellation 1")
+								-ofc ("setAttr " + $smoothNode[$i] + ".keepTessellation 0")									
+								-v $getTess;
+					setParent..;
+				
+			//map borders
+				if($vir>=5)
+					{
+						int $getMapBoarders = `getAttr ($smoothNode[$i] + ".keepMapBorders")`+1;
+						radioButtonGrp 
+							-cw4 $lW 100 100 100
+							-nrb 3 
+							-l "Keep Map Borders" 
+							-la3 "None" "Internal" "All"
+							-on1 ("setAttr " + $smoothNode[$i] + ".keepMapBorders 0")
+							-on2 ("setAttr " + $smoothNode[$i] + ".keepMapBorders 1")
+							-on3 ("setAttr " + $smoothNode[$i] + ".keepMapBorders 2")
+							-sl $getMapBoarders
+							;	
+					}
+			
+			//subdivision Levels
+				int $getSubLevel = `getAttr ($smoothNode[$i] + ".subdivisionLevels")`;
+				intSliderGrp
+					-f 1
+					-cw3 $lW $sW 20
+					-min 0
+					-max 4
+					-l "Subdivision Levels"
+					-cc ("gSmoothIntChange " + $smoothNode[$i] + " SubLevel subdivisionLevels")
+					-v $getSubLevel
+					($smoothNode[$i] + "SubLevel");
+				
+			//divisionsPerEdge
+				int $getDivEdge = `getAttr ($smoothNode[$i] + ".divisionsPerEdge")`;
+				intSliderGrp
+					-f 1
+					-cw3 $lW $sW 20
+					-min 0
+					-max 4
+					-l "Divisions Per Edge"
+					-cc ("gSmoothIntChange " + $smoothNode[$i] + " DivEdge divisionsPerEdge")
+					-v $getDivEdge
+					($smoothNode[$i] + "DivEdge");
+
+			//pushStrength
+				float $getPush = `getAttr ($smoothNode[$i] + ".pushStrength")`;
+				floatSliderGrp
+					-f 1
+					-cw3 $lW $sW 20
+					-min 0
+					-max 1
+					-l "Push Strength"
+					-dc ("gSmoothFloatChange " + $smoothNode[$i] + " Push pushStrength")
+					-v $getPush
+					($smoothNode[$i] + "Push");
+				
+			//roundness
+				float $getRoundness = `getAttr ($smoothNode[$i] + ".roundness")`;
+					floatSliderGrp
+					-f 1
+					-cw3 $lW $sW 20
+					-min -2
+					-max 2
+					-l "Roundness"
+					-dc ("gSmoothFloatChange " + $smoothNode[$i] + " Roundness roundness")
+					-v $getRoundness
+					($smoothNode[$i] + "Roundness");
+					
+			setParent..;		
+		}
+
+	setParent..;
+	
+int $Div;	
+for($eachDivAvg in $smoothNode)
+	$Div = `getAttr ($each + ".divisions")`+$Div;
+int $globalDiv = $Div/$sizeSmooth;
+
+string $buttonControl = `columnLayout -adj 1`;
+	intSliderGrp
+		-f 1
+		-cw3 140 50 20
+		-min 0
+		-max 4
+		-l "Global Division Level"
+		-cc "gSmoothDivideAll"
+		-adj 3
+		-v $globalDiv
+		divideAll;
+	button -h ($cH-22) -l "Close" -c "deleteUI globalSmoothUI";
+
+formLayout
+	-edit
+
+	-af $nodeControl "left" 0
+	-af $nodeControl "top" 0
+	-af $nodeControl "bottom" $cH
+	-af $nodeControl "right" 0
+	
+	-af $buttonControl "left" 0
+	-ac $buttonControl top 0 $nodeControl
+	-af $buttonControl "bottom" 0
+	-af $buttonControl "right" 0
+
+	$winForm;
+
+if($vir<5)
+	window -edit -wh 416 352 globalSmoothUI;
+
+if($vir>=5)
+	window -edit -wh 416 372 globalSmoothUI;
+				
+showWindow globalSmoothUI;
+}
+
+global proc gSmoothIntChange(string $node, string $slider, string $attr)
+{
+int $v = `intSliderGrp -q -v ($node + $slider)`;
+
+if($slider == "DivisionAll")
+	intSliderGrp -edit -v $v ($node + "Division");
+	
+if($slider == "Division")
+	intSliderGrp -edit -v $v ($node + "DivisionAll");
+
+setAttr ($node + "." + $attr) $v;
+}
+
+global proc gSmoothFloatChange(string $node, string $slider, string $attr)
+{
+float $v = `floatSliderGrp -q -v ($node + $slider)`;
+setAttr ($node + "." + $attr) $v;
+}
+
+global proc gSmoothDivideAll()
+{
+string $smoothNode[] = `ls -typ polySmoothFace`;
+if (`size($smoothNode)` == 0)
+	error "No smooth nodes found";	
+
+int $v = `intSliderGrp -q -v divideAll`;
+	
+for ($each in $smoothNode)
+	{
+		setAttr ($each + ".divisions") $v; 
+		intSliderGrp -edit -v $v ($each + "Division");
+		intSliderGrp -edit -v $v ($each + "DivisionAll");
+	}
+}

@@ -1,0 +1,176 @@
+//Keegan
+//Reload Textures
+//reloadTextures
+//reloadTexturesWindow
+//reloadTextures
+//utility
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 2.0
+
+Function: Clicking on the menu item or shelf button will reload 
+	all images in the scene, double clicking on the shelf button
+	or clicking on the option box will open a window allowing the 
+	user to chose which textures are reload.
+
+Last Updated:(11-22-04)
+
+Install 
+	Move reloadTextures.mel to you Maya scripts directory.
+	Move keeganShelf to you Maya icons directory.
+	Type "reloadTextures" into Maya's command line.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.	
+*/
+
+global proc reloadTextures()
+{
+string $tex[] = `ls -tex`;
+int $fileSize = size($tex);
+
+if($fileSize == 0)
+	error "No textures found";
+
+int $amount = 0;
+
+progressWindow
+	-t "Reloading Textures..."
+	-pr $amount
+	-st "Reloading: ..."
+	-ii 1
+	;
+
+for($each in $tex)
+	{
+		string $type = `nodeType $each`;
+			if($type == "file")
+				{
+					string $imagepath = `getAttr ($each + ".fileTextureName")`;
+
+					if(`size($imagepath)` > 0)
+						setAttr ($each + ".fileTextureName") -typ "string" $imagepath;
+				}
+					
+		if(`progressWindow -q -ic`)
+			break;
+	
+		$amount += 1;
+	
+		progressWindow -edit -max $fileSize -pr $amount -st ("Reloading Textures: " + $each);		
+	}
+
+progressWindow -ep;
+print "Textures reloaded";
+}
+
+global proc reloadTexturesWindow()
+{
+string $files[];
+string $imagepaths[];
+
+string $tex[] = `ls -tex`;
+int $fileSize = size($tex);
+
+if($fileSize == 0)
+	error "No textures found";
+
+for($each in $tex)
+	{
+		string $type = `nodeType $each`;
+		if($type == "file")
+			{
+				string $imagepath = `getAttr ($each + ".fileTextureName")`;
+				if(`size($imagepath)` > 0)
+					{
+						$imagepaths[`size($imagepaths)`] = $imagepath;
+						$files[`size($files)`] = $each;
+					}
+			}
+	}
+
+if(`size($files)` == 0)
+	error "No file textures found";
+
+reloadWindow $files $imagepaths;
+}
+
+global proc reloadWindow (string $files[], string $imagepaths[])
+{
+if(`window -q -ex reloadTexUI`)
+	deleteUI reloadTexUI;
+
+window -t "Reload File Texture" reloadTexUI;
+string $reloadForm = `formLayout`;
+	string $imageList = `scrollLayout -cr 1`;
+		columnLayout -adj 1 reloadFileCol;
+			for($i=0; $i<`size($files)`; $i++)
+				checkBox -v 1 -al left -l $files[$i] -ann $imagepaths[$i] $files[$i];
+	setParent $reloadForm;
+	
+	string $buttControl = `button -l "Reload File Textures" -c "reloadTexturesCommand"`;
+	setParent $reloadForm;
+	
+formLayout
+	-edit
+	
+	-af $imageList "top" 0
+	-af $imageList "bottom" 22
+	-af $imageList "left" 0
+	-af $imageList "right" 0
+	
+	-ac $buttControl "top" 0 $imageList
+	-af $buttControl "bottom" 0
+	-af $buttControl "left" 0
+	-af $buttControl "right" 0
+	
+$reloadForm;
+
+window -edit -wh 224 212 reloadTexUI;
+showWindow reloadTexUI;
+}
+
+global proc reloadTexturesCommand()
+{
+string $files[] = `columnLayout -q -ca reloadFileCol`;
+int $fileSize = `size($files)`;
+
+int $amount = 0;
+
+progressWindow
+	-t "Reloading Textures..."
+	-pr $amount
+	-st "Reloading: ..."
+	-ii 1
+	;
+
+for($i=0; $i<$fileSize; $i++)
+	{
+		if(`checkBox -q -v $files[$i]` == 1)
+			{
+				string $imagepath = `getAttr ($files[$i] + ".fileTextureName")`;
+				if(`size($imagepath)` > 0)
+					setAttr ($files[$i] + ".fileTextureName") -typ "string" $imagepath;
+			}
+		
+		if(`progressWindow -q -ic`)
+			break;
+	
+		$amount += 1;
+	
+		progressWindow -edit -max $fileSize -pr $amount -st ("Reloading Textures: " + $files[$i] + ". " + $i + " of " + $fileSize);		
+	}
+
+progressWindow -ep;
+
+print "Textures reloaded";
+
+if(`window -q -ex reloadTexUI`)
+	deleteUI reloadTexUI;
+}
+

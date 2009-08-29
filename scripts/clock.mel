@@ -1,0 +1,207 @@
+//Keegan
+//Clock
+//clock
+//none
+//clockShelf
+//utility
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+www.keegan3d.com
+Copyright (C) 2004 David Keegan
+
+Version: 1.0
+
+Function: Creates a clock.
+
+Last Modified: (11-03-2004)
+
+Install:
+	Move clock.mel to you Maya scripts directory.
+	Move "clockIcons" to you Maya icons directory.
+	Type "clock" into Maya's command line.
+	
+Note:  
+	This script uses the "idle" scripts job event.
+	This event is memory intensive, leaving the clock 
+	running for long periods of time may cause a drop
+	in available memory. Closing the clock will kill
+	the scriptJob.
+	
+If you create a shelf button using the clock menu the shelf
+button will toggle the clock on and off.
+
+The military or standard options change how the hours are 
+displayed. In military mode the time ranges from 0 to 23:59.59, 
+and standard the range is 1 to 12:59.59.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.	
+*/
+
+global proc clock()
+{
+int $clockUpdate;
+if (!`optionVar -exists "clockStyle"`)
+	optionVar -intValue "clockStyle" 0;
+
+int $style = `optionVar -q "clockStyle"`;
+
+if (!`optionVar -exists "clockFrame"`)
+	optionVar -intValue "clockFrame" 1;
+
+int $frame = `optionVar -q "clockFrame"`;
+
+string $imagepath = `internalVar -ubd` + "clockIcons/";
+
+//get time
+string $timeDreakdown[];
+string $systemtime = `system "time"`;
+tokenize $systemtime ":.\n " $timeDreakdown;
+
+int $time[];
+int $t;
+
+//break down time
+for ($t=4; $t<8; $t++)
+	{
+		int $T = $timeDreakdown[$t];
+		if ($style==0 && $T==0 && $t==4)
+			$T=12;
+		if ($style==0 && $T>12 && $t==4)
+			$T = $T-12;
+		float $TD = ($T+0.1)/10;
+		string $TDS = $TD;
+		string $TBD[];
+		tokenize $TDS "." $TBD;
+		int $T10 = $TBD[0];
+		int $TS = $TBD[1];
+		int $T1 = $TS/10;
+		$time[size($time)] = $T10;
+		$time[size($time)] = $T1;
+	}
+
+if (`window -q -ex clockUI`)
+	deleteUI clockUI;
+
+window -tb $frame -t "Maya Clock" clockUI;
+columnLayout;
+	popupMenu;
+	radioMenuItemCollection; 
+		menuItem -l "Standard" -c "optionVar -intValue \"clockStyle\" 0" -rb 0 Style0;
+		menuItem -l "Military" -c "optionVar -intValue \"clockStyle\" 1" -rb 0 Style1;
+	setParent -m..;
+		menuItem -d 1;
+		menuItem -l "Frame" -c "toggleClockFrame" -cb $frame toggleClockFrame;
+		menuItem -l "Create Shelf Button" -c "createShelf";
+		menuItem -d 1;
+		menuItem -l "Close" -c "deleteUI clockUI";
+		menuItem -edit -rb 1 ("Style" + $style);
+	picture -i ($imagepath + "clockTop.bmp");
+
+rowLayout -nc 4 -cw4 70 63 63 61;
+//hour
+	rowLayout -nc 4 -cw4 7 27 27 9;
+		picture -i ($imagepath + "clockLeft.bmp"); 
+		picture -i ($imagepath + "clock" + $time[0] + ".bmp") H10; 
+		picture -i ($imagepath + "clock" + $time[1] + ".bmp") H1; 
+		picture -i ($imagepath + "clockDDot.bmp"); 
+	setParent..;
+
+//minute	
+	rowLayout -nc 3 -cw3 27 27 9;
+		picture -i ($imagepath + "clock" + $time[2] + ".bmp") M10; 
+		picture -i ($imagepath + "clock" + $time[3] + ".bmp") M1; 
+		picture -i ($imagepath + "clockDot.bmp"); 
+	setParent..;
+
+//second	
+	rowLayout -nc 3 -cw3 27 27 9;
+		picture -i ($imagepath + "clock" + $time[4] + ".bmp") S10; 
+		picture -i ($imagepath + "clock" + $time[5] + ".bmp") S1; 
+		picture -i ($imagepath + "clockDot.bmp");
+	setParent..;
+
+//milli second	
+	rowLayout -nc 3 -cw3 27 27 7;
+		picture -i ($imagepath + "clock" + $time[6] + ".bmp") MS10; 
+		picture -i ($imagepath + "clock" + $time[7] + ".bmp") MS1; 
+		picture -i ($imagepath + "clockRight.bmp"); 
+	setParent..;
+setParent..;
+picture -i ($imagepath + "clockBottom.bmp");
+
+showWindow clockUI;
+if ($frame == 0)
+	window -edit -wh 257 66 clockUI;
+
+if ($frame == 1)
+	window -edit -wh 263 90 clockUI;
+
+$clockUpdate = `scriptJob -e "idle" "updateTime"`;
+scriptJob -ro 1 -uid "clockUI" ("scriptJob -kill " + $clockUpdate);
+}
+
+global proc updateTime()
+{
+int $style = `optionVar -q "clockStyle"`;
+string $imagepath = `internalVar -ubd` + "clockIcons/";
+
+//get time
+string $timeDreakdown[];
+string $systemtime = `system "time"`;
+tokenize $systemtime ":.\n " $timeDreakdown;
+
+int $time[];
+int $t;
+
+//break down time
+for ($t=4; $t<8; $t++)
+	{
+		int $T = $timeDreakdown[$t];
+		if ($style==0 && $T==0 && $t==4)
+			$T=12;
+		if ($style==0 && $T>12 && $t==4)
+			$T = $T-12;
+		float $TD = ($T+0.1)/10;
+		string $TDS = $TD;
+		string $TBD[];
+		tokenize $TDS "." $TBD;
+		int $T10 = $TBD[0];
+		int $TS = $TBD[1];
+		int $T1 = $TS/10;
+		$time[size($time)] = $T10;
+		$time[size($time)] = $T1;
+	}
+	
+picture -edit -i ($imagepath + "clock" + $time[0] + ".bmp") H10; 
+picture -edit -i ($imagepath + "clock" + $time[1] + ".bmp") H1; 
+picture -edit -i ($imagepath + "clock" + $time[2] + ".bmp") M10; 
+picture -edit -i ($imagepath + "clock" + $time[3] + ".bmp") M1; 
+picture -edit -i ($imagepath + "clock" + $time[4] + ".bmp") S10; 
+picture -edit -i ($imagepath + "clock" + $time[5] + ".bmp") S1;
+picture -edit -i ($imagepath + "clock" + $time[6] + ".bmp") MS10; 
+picture -edit -i ($imagepath + "clock" + $time[7] + ".bmp") MS1;  	
+}
+
+global proc toggleClockFrame()
+{
+int $state = `menuItem -q -cb toggleClockFrame`;
+window -edit -tb $state clockUI;
+optionVar -intValue "clockFrame" $state;
+}
+
+global proc createShelf()
+{
+global string $gShelfTopLevel;
+string $imagepath = `internalVar -ubd` + "clockIcons/";
+
+shelfButton
+	-parent ($gShelfTopLevel + "|" + `tabLayout -q -st $gShelfTopLevel`)
+	-l "Clock"
+	-ann "Launch \"Maya Clock\" By David Keegan"
+	-i1 ($imagepath + "clockShelf.xpm") 
+	-c "if (`window -q -ex clockUI`)\n\tdeleteUI clockUI;\n\nelse\n\tclock;"
+	;	
+}

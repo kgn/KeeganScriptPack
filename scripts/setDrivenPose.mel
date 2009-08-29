@@ -1,0 +1,282 @@
+//Keegan
+//Set Driven Pose
+//setDrivenPose
+//none
+//setDrivenPose
+//animation
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 1.0
+
+Function: Allows the user quickly and easily create poses 
+	for joint driven animation.
+
+Last Updated:(12-30-04)
+
+Install
+	1. Move setDrivenPose.mel to you Maya scripts directory.
+	2. Type "setDrivenPose" into Maya's command line.
+
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+All code and icons created by David Keegan. 
+Use and/or modify at your own risk.  
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc setDrivenPose()
+{
+if(`window -q -ex setPoseUI`)
+	deleteUI setPoseUI;
+	
+if(`window -q -ex setInitialUI`)
+	deleteUI setInitialUI;
+
+window -s 0 -t "Set Initial State" setInitialUI;
+	columnLayout -adj 1;
+		text "Select all joint to be used";
+		button -l "Set Initial State" -c "getInitialJointPosition";
+
+window -edit -wh 198 69 setInitialUI;
+showWindow setInitialUI;	
+}
+
+global proc getInitialJointPosition()
+{
+string $joint[] = `ls -sl -typ joint`;
+if(`size($joint)` == 0)
+	error "Select one or more joints";
+
+if(`window -q -ex setInitialUI`)
+	deleteUI setInitialUI;
+
+string $filePath = `internalVar -usd` + "setInitialPoseState.mel";
+string $jointPos[];
+
+for($each in $joint)
+	{
+		float $pos[] = `xform -q -t $each`;
+			{
+				for($i=0; $i<3; $i++)
+					$jointPos[size($jointPos)] = $pos[$i];
+			}
+	}
+
+int $file = `fopen $filePath "w"`;
+
+fprint $file "global proc string[] jointList ()\n{\nstring $joint[]=\n\t{";
+for($j=0; $j<(`size($joint)`-1); $j++)
+	fprint $file ("\n\t\t\"" + $joint[$j] + "\",");
+fprint $file ("\n\t\t\"" + $joint[size($joint)-1] + "\"\n\t};\n\nreturn $joint;\n}\n\n");
+
+string $ThreeptVector;
+fprint $file "global proc vector[] jointInitialPose ()\n{\nvector $jointPos[]=\n\t{";
+for($jp=0; $jp<(`size($jointPos)`-3); $jp+=3)
+	{
+		$ThreeptVector = "<<" + $jointPos[$jp] + ", " + $jointPos[$jp+1] + ", " + $jointPos[$jp+2] + ">>";
+		fprint $file ("\n\t\t" + $ThreeptVector + ",");
+	}
+$ThreeptVector = "<<" + $jointPos[size($jointPos)-3] + ", " + $jointPos[size($jointPos)-2] + ", " + $jointPos[size($jointPos)-1] + ">>";
+fprint $file ("\n\t\t" + $ThreeptVector + "\n\t};\n\nreturn $jointPos;\n}\n\n");
+
+fclose $file;
+file -import -type "mel" -pr $filePath;
+setDrivenPoseUI;
+}
+
+global proc setDrivenPoseUI()
+{
+if(`window -q -ex setPoseUI`)
+	deleteUI setPoseUI;
+
+window -t "Set Driven Pose" setPoseUI;
+	string $mainForm = `formLayout`;
+		string $optionForm = `formLayout`;
+			string $shapeControl = `frameLayout "Control Shape"`;
+					rowLayout -nc 2 -cw2 50 1 -adj 2 -cl2 center center;
+						button -w 50 -l "Select" -c "textField -edit -tx (`ls -sl`) controlShapeField";
+						textField controlShapeField;
+						
+			setParent $optionForm;
+			string $nameControl = `frameLayout "Pose Name"`;
+						textField poseNameField;
+			setParent $optionForm;
+			
+			string $numericControl = `frameLayout "Numeric Attribute Properties"`;
+					rowLayout -nc 2 -cw2 45 1 -adj 2;
+						columnLayout;
+							text -h 22 "Minimum";
+							text -h 22 "Maximun";
+							text -h 22 "Defult";
+						setParent..;
+						columnLayout -adj 1;
+							floatField -pre 1 minimunAttrValue;
+							floatField -pre 1 maximunAttrValue;
+							floatField -pre 1 defultAttrValue;
+						
+			setParent $optionForm;
+			
+			string $poseButt = `button -l "Set Pose" -c "createDrivenPose"`;
+			
+		formLayout
+			-edit
+
+			-af $shapeControl top 0
+			-ac $shapeControl bottom 0 $nameControl
+			-af $shapeControl left 0
+			-af $shapeControl right 0
+			
+			-af $nameControl top 38
+			-ac $nameControl bottom 0 $numericControl
+			-af $nameControl left 0
+			-af $nameControl right 0
+
+			-af $numericControl top 76
+			-ac $numericControl bottom 0 $poseButt
+			-af $numericControl left 0
+			-af $numericControl right 0
+			
+			-af $poseButt top 158
+			-af $poseButt bottom 0
+			-af $poseButt left 0
+			-af $poseButt right 0
+			
+			$optionForm;
+			
+		setParent $mainForm;
+		string $jointForm = `frameLayout "Joint List"`;
+			textScrollList -ams 0 jointList;
+			
+		for($each in `jointList`)
+			textScrollList 
+				-edit 
+				-dcc "select -r `textScrollList -q -si jointList`" 
+				-append $each 
+				jointList;
+
+		setParent $mainForm;
+		string $closeButt = `button -l "close" -c "deleteUI setPoseUI"`;
+		
+		formLayout
+			-edit
+			
+			-af $optionForm top 0
+			-af $optionForm bottom 22
+			-af $optionForm left 0
+			-af $optionForm right 110
+			
+			-af $jointForm top 0
+			-af $jointForm bottom 22
+			-ac $jointForm left 0 $optionForm
+			-af $jointForm right 0
+			
+			-ac $closeButt top 0 $optionForm
+			-af $closeButt bottom 0
+			-af $closeButt left 0
+			-af $closeButt right 0
+			
+		$mainForm;
+	
+window -edit -wh 286 254 setPoseUI;
+showWindow setPoseUI;	
+}
+
+global proc createDrivenPose()
+{
+string $controlShape = `textField -q -tx controlShapeField`;
+if(`size($controlShape)` == 0)
+	error "Select your control shape";
+
+if(!`objExists $controlShape`)
+	error "No object matches the name of the given control shape";
+
+string $poseName = `textField -q -tx poseNameField`;
+if(`size($poseName)` == 0)
+	error "Enter a pose name";
+
+float $min = `floatField -q -v minimunAttrValue`;
+float $max = `floatField -q -v maximunAttrValue`;
+float $def = `floatField -q -v defultAttrValue`;
+
+if($max <= $min)
+	error "Maximum value is less than of equal to minimum value";
+
+if($def < $min)
+	error "Defult vlaue is less than minimum value";
+
+if($def > $max)
+	error "Defult vlaue is greater than maximum value";
+
+addAttr -ln $poseName -at double  -min $min -max $max -dv $def $controlShape;
+setAttr -edit -k 1 ($controlShape + "." + $poseName);
+string $Tattr[]=
+	{
+		".tx",
+		".ty",
+		".tz"
+	};
+
+int $multFactor = 1000;
+string $joint[] = `jointList`;
+vector $jointPos[] = `jointInitialPose`;
+string $movedJoints[];
+vector $newMovePos[];
+vector $oldMovePos[];
+
+for($i=0; $i<`size($joint)`; $i++)
+	{
+		vector $pos = `xform -q -t $joint[$i]`;
+		
+		int $newX = $pos.x*$multFactor;
+		int $newY = $pos.y*$multFactor;
+		int $newZ = $pos.z*$multFactor;
+		
+		vector $oldJointPos = $jointPos[$i];
+		
+		int $oldX = $oldJointPos.x*$multFactor;
+		int $oldY = $oldJointPos.y*$multFactor;
+		int $oldZ = $oldJointPos.z*$multFactor;
+		
+		vector $newPos = <<$newX, $newY, $newZ>>;
+		vector $oldPos = <<$oldX, $oldY, $oldZ>>;
+		
+		if($newPos == $oldPos);
+		else
+			{
+				$movedJoints[size($movedJoints)] = $joint[$i];
+				$newMovePos[size($newMovePos)] = $pos;
+				$oldMovePos[size($oldMovePos)] = $oldJointPos;
+			}
+	}
+	
+for($mj=0; $mj<`size($movedJoints)`; $mj++)
+	{
+		vector $origPos = $oldMovePos[$mj];
+			
+		float $origV[]=
+			{
+				$origPos.x,
+				$origPos.y,
+				$origPos.z
+					
+			};
+			
+		for($t=0; $t<3; $t++)
+			{
+				setAttr ($controlShape + "." + $poseName) $max;
+				setDrivenKeyframe -cd ($controlShape + "." + $poseName) ($movedJoints[$mj] + $Tattr[$t]);
+				setAttr ($controlShape + "." + $poseName) $min;
+				setAttr ($movedJoints[$mj] + $Tattr[$t]) $origV[$t];
+				setDrivenKeyframe -cd ($controlShape + "." + $poseName) ($movedJoints[$mj] + $Tattr[$t]);
+				setAttr ($controlShape + "." + $poseName) $def;
+			}
+	}
+	
+textField -edit -tx "" poseNameField;
+select -r $controlShape;
+}

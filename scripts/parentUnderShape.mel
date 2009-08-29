@@ -1,0 +1,60 @@
+//Keegan
+//Parent Under Shape
+//parentUnderShape
+//none
+//parentUnderShape
+//rigging
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+
+Version: 1.0
+
+Function: Combines selected objects under one transform.
+
+Install 
+	1. Move parentUnderShape.mel to you Maya scripts directory.
+	2. Type "parentUnderShape" into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc parentUnderShape()
+{
+string $sel[] = `ls -sl -typ "transform"`;
+if(`size($sel)` < 2)
+	error "Select two or more shapes";
+
+string $parent, $curvesShape[], $curvesTrans[];
+for($each in $sel)
+	{
+		string $shape[] = `listRelatives -s $each`;
+		if(`size($shape)` == 0)
+			continue;
+		
+		if(`size($parent)` == 0)
+			$parent = $each;
+		
+		$curvesShape[size($curvesShape)] = $shape[0];
+		$curvesTrans[size($curvesTrans)] = $each;
+	}
+	
+if(`size($curvesShape)` == 0)
+	error "No shapes found";
+
+makeIdentity -a 1 -r 1 -s 1 -t 1 $curvesTrans;
+
+for($i=1; $i<`size($curvesShape)`; $i++)
+	{
+		parent -s -r $curvesShape[$i] $parent;
+		delete $sel[$i];
+	}
+
+select -r $parent;
+}

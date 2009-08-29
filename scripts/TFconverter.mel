@@ -1,0 +1,369 @@
+//Keegan
+//Time\Frame Converter
+//TFconverter
+//none
+//TFconverter
+//animation
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 1.5
+Last Modified: (11-03-2004)
+
+Installation:
+	1.Copy this script to your script directory.
+	2.Type "TFconverter" into Maya's command line.
+
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+This will convert:
+	Minuets:Seconds.Frames -> Absolute Frames
+	Absolute Frames -> Minuets:Seconds.Frames
+
+Can use any frame rate (PAL, Game, NTSC, Film, Ext).
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc TFconverter()
+{
+int $currentFR = 0;
+string $timeFPS = `currentUnit -q -t`;
+int $maxF = `getFrameRateFromMaya`;
+int $currentFR = `convertFrameRateToInt`;
+
+if (`window -q -ex timeCon`)
+	deleteUI timeCon;
+window -mb 1 -t "Frame/Time Converter" timeCon;
+string $tfForm = `formLayout`;
+	string $frameRateControl = `columnLayout -adj 1`;
+		rowLayout -nc 3 -cw3 1 70 126 -adj 1;
+			text " ";
+			text -l "Frame Rate:";
+			optionMenu -ann "Change fps used in convertion" -cc "setMaxFrame" conFPS;
+				menuItem -l "game: 15 fps  ";
+				menuItem -l "film: 24 fps  "; 
+				menuItem -l "pal: 25 fps  "; 
+				menuItem -l "ntsc: 30 fps  "; 
+				menuItem -l "show: 48 fps  "; 
+				menuItem -l "palf: 50 fps  "; 
+				menuItem -l "ntscf: 60 fps  ";
+					optionMenu -edit -sl $currentFR conFPS;
+	setParent $frameRateControl;
+	string $timeForm = `formLayout`;
+	
+		string $minuetsField = `intField -min 0 -ec "toFrames" -ann "Minuets" tcMin`;
+		setParent $timeForm;
+		
+		string $seconds = `rowLayout -nc 3 -cw3 5 1 5 -adj 2`;
+			text -fn "boldLabelFont" ":";
+			intField -min 0 -max 60 -ec "toFrames" -ann "Seconds" tcSec;
+			text -fn "boldLabelFont" ".";
+		setParent $timeForm;
+		
+		string $FramesField = `intField -min 0 -max $maxF -ec "toFrames" -ann "Frames" tcFrm`;
+		
+		formLayout
+			-edit 
+			
+			-af $minuetsField "top" 0
+			-af $minuetsField "bottom" 0
+			-af $minuetsField "left" 0
+			-ap $minuetsField "right" 0 32
+			
+			-af $seconds "top" 0
+			-af $seconds "bottom" 0
+			-ac $seconds "left" 0 $minuetsField
+			-ac $seconds "right" 0 $FramesField
+			
+			-af $FramesField "top" 0
+			-af $FramesField "bottom" 0
+			-ap $FramesField "left" 0 68
+			-af $FramesField "right" 0
+			
+			$timeForm;
+		
+setParent $frameRateControl;
+	intField -w 158 -ec "toTime" -ann "Absolute Frames" tcAbtFrames;
+		popupMenu;
+			menuItem -l "Get end frame" -ann "Set end frame as value" -c "setFieldAET";
+			menuItem -l "Get playback end frame" -ann "Set playback end frame as value" -c "setFieldMAX";
+			menuItem -d 1;
+			menuItem -l "Set end frame" -ann "Set current value as end frame" -c "setEndFrame";
+			
+setParent $frameRateControl;
+	string $buttonForm = `formLayout`;
+		string $buttControl1 = `button -ann "Convert time to frames" -l "Frames" -c "toFrames"`;
+		string $buttControl2 = `button -ann "Convert frames to time" -l "Time" -c "toTime"`;
+		
+	formLayout
+		-edit
+		
+		-af $buttControl1 "top" 0
+		-af $buttControl1 "bottom" 0
+		-af $buttControl1 "left" 0
+		-ap $buttControl1 "right" 0 50
+
+		-af $buttControl2 "top" 0
+		-af $buttControl2 "bottom" 0
+		-ap $buttControl2 "left" 0 50
+		-af $buttControl2 "right" 0
+		
+		$buttonForm;
+
+setParent $frameRateControl;
+button -ann "Set all fields to zero" -l "Reset" -c "resetTimeCon";
+
+setParent $tfForm;
+string $closeButtControl = `button -ann "Close" -l "Close" -c "deleteUI timeCon"`;
+
+formLayout
+	-edit
+	
+	-af $frameRateControl "top" 0
+	-af $frameRateControl "bottom" 22
+	-af $frameRateControl "left" 0
+	-af $frameRateControl "right" 0
+	
+	-ac $closeButtControl "top" 0 $frameRateControl
+	-af $closeButtControl "bottom"0
+	-af $closeButtControl "left" 0
+	-af $closeButtControl "right" 0
+	
+	$tfForm;
+
+window -edit -wh 242 168 timeCon;
+showWindow;
+}
+
+global proc setEndFrame()
+{
+int $startTime = `playbackOptions -q -ast`;
+int $endTime = `playbackOptions -q -aet`;
+int $endPlay = `playbackOptions -q -max`;
+int $endFrame = `intField -q -v tcAbtFrames`;
+
+if ($endFrame <= $startTime)
+	error "Value is less then or equal to start time";
+
+if ($endFrame > $startTime)
+	{
+		if ($endTime > $endPlay)
+			playbackOptions -aet $endFrame;
+		if ($endTime == $endPlay)
+			{
+				playbackOptions -aet $endFrame;
+				playbackOptions -max $endFrame;
+			}
+	}
+}
+global proc setFieldAET()
+{
+int $endTime = `playbackOptions -q -aet`;
+intField -edit -v $endTime tcAbtFrames;
+}
+
+global proc setFieldMAX()
+{
+int $endTime = `playbackOptions -q -max`;
+intField -edit -v $endTime tcAbtFrames;
+}
+
+global proc resetTimeCon()
+{
+intField -edit -v 0 tcFrm;
+intField -edit -v 0 tcSec;
+intField -edit -v 0 tcMin;
+intField -edit -v 0 tcAbtFrames;	
+}
+
+global proc setMaxFrame()
+{
+intField -edit -max `convertIntRateToFrame` tcFrm;	
+}
+
+global proc toFrames()
+{
+int $min = `intField -q -v tcMin`;
+int $sec = `intField -q -v tcSec`;
+int $frm = `intField -q -v tcFrm`;
+	
+int $FR = `convertIntRateToFrame`;
+
+int $mTs = ($min*60)*$FR;
+int $sTf = $sec*$FR;
+int $totalF = $mTs+$sTf+$frm;
+
+intField -edit -v $totalF tcAbtFrames;
+print ("Absolute Frames : " + $totalF + "\n");
+}
+
+global proc toTime()
+{
+float $NS;
+float $NM;
+string $SBD[];
+string $MBD[];
+string $MSBD[];
+float $adFrm = `intField -q -v tcAbtFrames`;
+	
+float $FR = `convertIntRateToFrame`;
+
+if ($adFrm <=$FR)
+	{
+		intField -edit -v $adFrm tcFrm;
+		intField -edit -v 0 tcSec;
+		intField -edit -v 0 tcMin;
+	}
+
+if ($adFrm >$FR)
+	{
+		$NS = $adFrm/$FR;
+		if ($NS > 60)
+			{
+				$NM = $NS/60;
+				string $MinS = $NM;
+				tokenize $MinS "." $MBD;
+				int $sizeM = `size($MBD)`;
+					if ($sizeM == 2)
+						{
+							int $MtM = $MBD[0];
+							string $MBDD = "0." + $MBD[1];
+							float $MBDF = $MBDD;
+							float $SCek = $MBDF*60;
+							string $STok = $SCek;
+							tokenize $STok "." $MSBD;
+							int $sizeMS = `size($MSBD)`;
+								if ($sizeMS == 2)
+									{
+										int $MtSD = $MSBD[0];
+										string $MSBDD = "0." + $MSBD[1];
+										float $MSBDDF = $MSBDD;
+										float $MtFF =  $MSBDDF*$FR;
+										int $MtF = $MtFF;
+										intField -edit -v $MtM tcMin;
+										intField -edit -v $MtSD tcSec;
+										intField -edit -v $MtF tcFrm;
+									}
+								else
+									{
+										int $MtS = $MBD[1];
+										intField -edit -v $MtM tcMin;
+										intField -edit -v $MtS tcSec;
+										intField -edit -v 0 tcFrm;
+									}
+						}
+					else
+						{
+							intField -edit -v $NM tcMin;
+							intField -edit -v 0 tcSec;
+							intField -edit -v 0 tcFrm;
+						}
+			}
+		else
+			{
+				string $SecS = $NS;
+				tokenize $SecS "." $SBD;
+				int $sizeS = `size($SBD)`;
+					if ($sizeS == 2)
+						{
+							int $StS = $SBD[0];
+							string $SBDD = "0." + $SBD[1];
+							float $SBDDF = $SBDD;
+							float $MtFF =  $SBDDF*$FR;
+							int $StF = $MtFF;
+							intField -edit -v 0 tcMin;
+							intField -edit -v $StS tcSec;
+							intField -edit -v $StF tcFrm;
+						}
+					else
+						{
+							intField -edit -v 0 tcMin;
+							intField -edit -v $NS tcSec;
+							intField -edit -v 0 tcFrm;
+						}
+			}
+	}
+int $min = `intField -q -v tcMin`;
+int $sec = `intField -q -v tcSec`;
+int $frm = `intField -q -v tcFrm`;
+print ("Time : " + $min + ":" + $sec + "." + $frm + "\n");
+}
+
+global proc int getFrameRateFromMaya()
+{
+string $timeFPS = `currentUnit -q -t`;
+
+float $frameRate;
+if ($timeFPS == "game")
+	$frameRate = 15;
+if ($timeFPS == "film")
+	$frameRate = 24;
+if ($timeFPS == "pal")
+	$frameRate = 25;
+if ($timeFPS == "ntsc")
+	$frameRate = 30;
+if ($timeFPS == "show")
+	$frameRate = 48;
+if ($timeFPS == "palf")
+	$frameRate = 50;
+if ($timeFPS == "ntscf")
+	$frameRate = 60;
+
+return $frameRate;
+}
+
+global proc int convertFrameRateToInt()
+{	
+string $timeFPS = `currentUnit -q -t`;
+
+int $frameInt;
+if ($timeFPS == "game")
+	$frameInt = 1;
+if ($timeFPS == "film")
+	$frameInt = 2;
+if ($timeFPS == "pal")
+	$frameInt = 3;
+if ($timeFPS == "ntsc")
+	$frameInt = 4;
+if ($timeFPS == "show")
+	$frameInt = 5;
+if ($timeFPS == "palf")
+	$frameInt = 6;
+if ($timeFPS == "ntscf")
+	$frameInt = 7;
+
+if ($timeFPS == 0)
+	$frameInt = 4;	
+
+return $frameInt;
+}
+
+global proc int convertIntRateToFrame()
+{
+int $FRQ = `optionMenu -q -sl conFPS`;
+
+int $frameRate;
+if ($FRQ == 1)
+	$frameRate = 15;
+if ($FRQ == 2)
+	$frameRate = 24;
+if ($FRQ == 3)
+	$frameRate = 25;
+if ($FRQ == 4)
+	$frameRate = 30;
+if ($FRQ == 5)
+	$frameRate = 48;
+if ($FRQ == 6)
+	$frameRate = 50;
+if ($FRQ == 7)
+	$frameRate = 60;	
+
+return $frameRate;
+}

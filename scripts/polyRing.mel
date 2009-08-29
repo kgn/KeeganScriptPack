@@ -1,0 +1,282 @@
+//Keegan
+//Poly Ring
+//polyRing
+//polyRingOptionBox
+//polyRing
+//modeling
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 1.0
+
+Function: Creates a polygon ring.
+
+Last Updated:(10-24-04)
+
+Install:
+	1.Move polyRing.mel to you Maya scripts directory.
+	2.Move keeganShelf to you Maya icons directory.
+	3.Type "polyRing" into Maya's command line.
+		To create a shelf button type "polyRingShelf".
+		To open the option box type "polyRingOptionBox" or double click 
+		on the polyRing shelf button.
+	
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.	
+*/
+
+global proc polyRing()
+{
+if (!`optionVar -ex "polyRingSubDAroundAxis"`)
+	optionVar -intValue "polyRingSubDAroundAxis" 10;
+
+if (!`optionVar -ex "polyRingSubDInRing"`)
+	optionVar -intValue "polyRingSubDInRing" 0;
+
+if (!`optionVar -ex "polyRingRadius"`)
+	optionVar -floatValue "polyRingRadius" 1;
+
+if (!`optionVar -ex "polyRingSize"`)
+	optionVar -floatValue "polyRingSize" 1;
+
+if (!`optionVar -ex "polyRingAxis"`)
+	optionVar -stringValue "polyRingAxis" "radio_Z";
+
+int $subDAroundAxis = `optionVar -q "polyRingSubDAroundAxis"`;
+int $subDInRing = `optionVar -q "polyRingSubDInRing"`;
+float $radius = `optionVar -q "polyRingRadius"`;
+float $size = `optionVar -q "polyRingSize"`;
+string $axis = `optionVar -q "polyRingAxis"`;
+
+createPolyRing $subDAroundAxis $subDInRing $radius $size $axis;
+}
+
+global proc polyRingOptionBox()
+{
+int $subDAroundAxis = `optionVar -q "polyRingSubDAroundAxis"`;
+int $subDInRing = `optionVar -q "polyRingSubDInRing"`;
+float $radius = `optionVar -q "polyRingRadius"`;
+float $size = `optionVar -q "polyRingSize"`;
+string $axis = `optionVar -q "polyRingAxis"`;
+
+if(`window -q -ex ringUI`)
+	deleteUI ringUI;
+
+string $axisLabel[]=
+	{
+		"X",
+		"Y",
+		"Z"
+	};
+		
+window -mb 1 -t "Poly Ring" ringUI;
+menu -l "Edit";
+menuItem
+	-l "Save Settings"
+	-c "saveRingSettings"
+	;
+menuItem
+	-l "Reset Settings"
+	-c "resetRingSettings"
+	;
+	
+int $lW = 160;
+string $polyRingForm = `formLayout`;
+	string $optionControl = `columnLayout -adj 1 mainRingCol`;
+		floatSliderGrp
+			-cw3 $lW 60 1
+			-f 1
+			-v $radius
+			-l " Radius"
+			-min 0.01
+			-max 10
+			-adj 3
+			ringField_Radius;
+
+		floatSliderGrp
+			-cw3 $lW 60 1
+			-f 1
+			-v $size
+			-l " Ring Size"
+			-min 0.01
+			-max 10
+			-adj 3
+			ringField_RingSize;
+		
+		intSliderGrp
+			-cw3 $lW 60 1
+			-f 1
+			-v $subDAroundAxis
+			-l " Subdivisions Around Axis"
+			-min 3
+			-max 100
+			-adj 3
+			ringField_SubDAroundAxis;
+
+		intSliderGrp
+			-cw3 $lW 60 1
+			-f 1
+			-v $subDInRing
+			-l " Subdivisions In Ring"
+			-min 0
+			-max 100
+			-adj 3
+			ringField_SubDInRing;
+		
+		separator;
+		
+		radioCollection ringRadio;
+		rowLayout -nc 5 -cw5 ($lW-40) 40 40 40 40;
+			text " ";
+			text -l " Axis";
+			for($each in $axisLabel)
+				radioButton -al left -l $each ("radio_" + $each);
+			radioButton -edit -sl $axis; 
+		setParent..;
+	setParent $polyRingForm;
+		
+	string $buttControl1 = `button -l "Create" -c "polyRingGetUIValues; deleteUI ringUI"`;
+	string $buttControl2 = `button -l "Apply" -c "polyRingGetUIValues"`;
+	string $buttControl3 = `button -l "Close" -c "deleteUI ringUI"`;
+	
+formLayout
+	-edit
+	
+	-af $optionControl "left" 0
+	-af $optionControl "top" 0
+	-af $optionControl "bottom" 22
+	-af $optionControl "right" 0
+
+	-af $buttControl1 "left" 0
+	-af $buttControl1 "bottom" 0
+	-ac $buttControl1 "top" 0 $optionControl
+	-ap $buttControl1 "right" 0 33
+
+	-ac $buttControl2 "left" 0 $buttControl1
+	-af $buttControl2 "bottom" 0
+	-ac $buttControl2 "top" 0 $optionControl
+	-ac $buttControl2 "right" 0 $buttControl3
+	
+	-ap $buttControl3 "left" 0 66
+	-af $buttControl3 "bottom" 0
+	-ac $buttControl3 "top" 0 $optionControl
+	-af $buttControl3 "right" 0	
+	
+	$polyRingForm;
+
+window -edit -wh 349 194 ringUI;
+showWindow ringUI;
+}
+
+global proc polyRingGetUIValues()
+{
+float $radius = `floatSliderGrp -q -v ringField_Radius`;
+float $ringSize = `floatSliderGrp -q -v ringField_RingSize`;
+int $subDAroundAxis = `intSliderGrp -q -v ringField_SubDAroundAxis`;
+int $subDInRing = `intSliderGrp -q -v ringField_SubDInRing`;
+string $axis = `radioCollection -q -sl ringRadio`;
+
+createPolyRing $subDAroundAxis $subDInRing $radius $ringSize $axis;
+}
+
+global proc createPolyRing(int $subDAroundAxis, int $subDInRing, float $radius, float $ringSize, string $axis)
+{
+string $ring[] =
+		`polyCylinder 
+			-r $radius 
+			-h 1 
+			-sx $subDAroundAxis 
+			-sy 1 
+			-sz 0 
+			-ax 0 1 0 
+			-tx 1 
+			-ch 0
+			`;
+string $polyRing = `rename $ring[0] "polyRing"`;
+
+int $endFace = $subDAroundAxis;
+int $endEdge = $subDAroundAxis-1;
+delete ($polyRing + ".f[0:" + $endFace + "]");
+
+polyExtrudeEdge 
+	-ch 0 
+	-kft 1 
+	-ran 0
+	-ws 0
+	-divisions ($subDInRing+1)
+	-lty ($ringSize*-1)
+	-twist 0
+	-taper 1     
+	($polyRing + ".e[0:" + $endEdge + "]");
+
+delete ($polyRing + ".f[0]");
+
+setAttr ($polyRing + ".ty") -.5;
+xform -cp $polyRing;
+
+if($axis == "radio_Z")
+	setAttr ($polyRing + ".rx") 90;
+
+if($axis == "radio_X")
+	setAttr ($polyRing + ".rz") 90;
+
+makeIdentity -a 1 -t 1 -r 1 -s 1 $polyRing;
+
+optionVar -intValue "polyRingSubDAroundAxis" $subDAroundAxis;
+optionVar -intValue "polyRingSubDInRing" $subDInRing;
+optionVar -floatValue "polyRingRadius" $radius;
+optionVar -floatValue "polyRingSize" $ringSize;
+optionVar -stringValue "polyRingAxis" $axis;
+
+select -r $polyRing;
+}
+
+global proc saveRingSettings()
+{
+float $radius = `floatSliderGrp -q -v ringField_Radius`;
+float $ringSize = `floatSliderGrp -q -v ringField_RingSize`;
+int $subDAroundAxis = `intSliderGrp -q -v ringField_SubDAroundAxis`;
+int $subDInRing = `intSliderGrp -q -v ringField_SubDInRing`;
+string $axis = `radioCollection -q -sl ringRadio`;
+
+optionVar -intValue "polyRingSubDAroundAxis" $subDAroundAxis;
+optionVar -intValue "polyRingSubDInRing" $subDInRing;
+optionVar -floatValue "polyRingRadius" $radius;
+optionVar -floatValue "polyRingSize" $ringSize;
+optionVar -stringValue "polyRingAxis" $axis;
+}
+
+global proc resetRingSettings()
+{
+optionVar -intValue "polyRingSubDAroundAxis" 10;
+optionVar -intValue "polyRingSubDInRing" 0;
+optionVar -floatValue "polyRingRadius" 1;
+optionVar -floatValue "polyRingSize" 1;
+optionVar -stringValue "polyRingAxis" "radio_Z";
+
+floatSliderGrp -edit -v 1 ringField_Radius;
+floatSliderGrp -edit -v 1 ringField_RingSize;
+intSliderGrp -edit -v 10 ringField_SubDAroundAxis;
+intSliderGrp -edit -v 0 ringField_SubDInRing;
+radioButton -edit -sl "radio_Z";
+}
+
+global proc polyRingShelf()
+{
+setShelfVisible 1;
+string $imagepath = `internalVar -ubd` + "keeganShelf/";
+global string $gShelfTopLevel;
+
+shelfButton
+	-p ($gShelfTopLevel + "|" + `tabLayout -q -st $gShelfTopLevel`)
+	-l "Polygon Ring"
+	-ann "Polygon Ring: Create a polygon ring on the grid"
+	-i1 ($imagepath + "polyRing.xpm") 
+	-c "polyRing"
+	-dcc "polyRingOptionBox"
+	;	
+}

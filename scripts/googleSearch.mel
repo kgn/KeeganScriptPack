@@ -1,0 +1,151 @@
+//Keegan
+//Google Search
+//googleSearch
+//none
+//googleSearch
+//utility
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 2.0
+
+Last Modified: (11-03-2004)
+
+Function: Searches on Google for your entry. 
+Search can be done for images or websites.
+In Maya six the user has the option to open
+Google in an web browser or in Maya's browser
+
+Install 
+	1. Move googleSearch.mel to your Maya scripts directory.
+	2. Type googleSearch into Maya's command line.
+
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc googleSearch()
+{
+string $MayaBD[];
+string $Maya = `about -version`;
+tokenize $Maya "." $MayaBD;
+int $vir = $MayaBD[0];
+
+if(`window -q -ex googleSearchUI`)
+	deleteUI googleSearchUI;
+
+int $winH = 78;
+
+window -t "Google Search" googleSearchUI;
+string $googleSearchForm = `formLayout`;
+string $optionControl = `columnLayout -adj 1`;
+	rowLayout -nc 2 -cw2 50 100 -adj 2;
+		text -al left " Search";
+		textField searchString;
+	setParent..;
+if($vir>=6)
+	{
+		radioCollection browserType;
+			rowLayout -nc 2 -cw2 70 70;
+				radioButton -sl -l "Browser" GBR;
+				radioButton -l "Maya" GMY;
+			setParent..;
+		setParent..;
+		$winH = 92;
+	}
+setParent $googleSearchForm;
+
+string $buttControl1 = `button -l "Search Web" -c "googleWebGen 0"`;
+setParent $googleSearchForm;
+
+string $buttControl2 = `button -l "Search Images" -c "googleWebGen 1"`;
+setParent $googleSearchForm;
+
+formLayout
+	-edit
+	
+	-af $optionControl "left" 0
+	-af $optionControl "top" 0
+	-af $optionControl "bottom" 22
+	-af $optionControl "right" 0
+
+	-ap $buttControl1 "left" 0 50
+	-af $buttControl1 "bottom" 0
+	-ac $buttControl1 top 0 $optionControl
+	-af $buttControl1 "right" 0
+	
+	-af $buttControl2 "left" 0
+	-af $buttControl2 "bottom" 0
+	-ac $buttControl2 top 0 $optionControl
+	-ap $buttControl2 "right" 0 50
+	
+	$googleSearchForm;
+
+window -edit -wh 200 $winH googleSearchUI;
+showWindow googleSearchUI;
+}
+
+global proc googleWebGen(int $v)
+{
+string $MayaBD[];
+string $Maya = `about -version`;
+tokenize $Maya "." $MayaBD;
+int $vir = $MayaBD[0];
+
+string $search, $textSpacer[], $addres[];
+string $getText = `textField -q -text searchString`;
+if(`size($getText)`==0)
+	error "No search string";
+tokenize $getText " " $textSpacer;
+int $sizeSpacer = `size($textSpacer)`;
+
+if($sizeSpacer>1)
+	{
+		for($i=1; $i<$sizeSpacer; $i++)
+			$search = $search + "+" + $textSpacer[$i];
+		$search = $textSpacer[0] + $search;
+	}
+else
+	$search = $textSpacer[0];
+	
+if($v==0)
+	{
+		$addres[0]="www";
+		$addres[1]="search"; 
+		$addres[2]="ie"; 
+	}
+	
+if($v==1)
+	{
+		$addres[0]="images";
+		$addres[1]="images"; 
+		$addres[2]="lr=&ie"; 
+	}
+
+string $googleAddres = "http://" + $addres[0] + ".google.com/" + $addres[1] + "?hl=en&" + $addres[2] + "=UTF-8&oe=UTF-8&q=" + $search;
+
+if($vir>=6)
+{
+	string $browserType = `radioCollection -q -sl browserType`;
+	if($browserType=="GMY")
+		{
+			setNamedPanelLayout "Web Browser/Persp";
+			webBrowser -edit -url $googleAddres webBrowserPanel1BrowserControl;
+		}
+	if($browserType=="GBR")
+		showHelp -absolute $googleAddres;
+}
+
+if($vir<=5)
+	showHelp -absolute $googleAddres;
+
+if(`window -q -ex googleSearchUI`)
+	deleteUI googleSearchUI;
+}

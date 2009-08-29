@@ -1,0 +1,304 @@
+/*
+Author: David Keegan (www.keegan3d.com)
+Copyright (C) 2005 David Keegan
+
+Version: 2.0
+
+Function: Bat searches directories for rib sequences and 
+	lists them in a list. The user can then select the 
+	rib sequence and designate the start and end time 
+	for the batch render. The interface tells the user 
+	what type of depth map shadows are used, the user 
+	can chose to render them or not. The user also has 
+	the option to render the sequence or just create 
+	the batch file to be executed later.
+
+Install 
+	1. Move bat.mel to you're Maya scripts directory.
+	2. Move KeeganMan to you're icons directory.
+	2. Type "bat" into Maya's command line.
+
+Use and/or modify at your own risk.
+*/
+
+global proc bat()
+{
+string $ribDir = `workspace -q -rd` + "rib/";
+
+$fileExists = `filetest -d $ribDir`;
+if (!$fileExists)
+	error "no \"rib\" directory found in the project directory";
+
+if (`window -ex PRmanBR`)
+	deleteUI PRmanBR;
+				
+window -wh 259 401 -t "Bat - PRman Batch Render" PRmanBR;
+string $soundForm = `formLayout`;
+
+	string $dirControl = `rowLayout -nc 2 -cw2 1 20 -adj 1`;
+		textField -text $ribDir ribDirField;
+		button -l "dir" -w 20 -c "fileBrowser \"pickRIBdir\" \"Set Project\" \"\" 4";
+		
+setParent $soundForm;
+	string $fileControl = `paneLayout -cn single`;
+		textScrollList -dkc "deleteSound" -ams 0 ribList;
+		
+string $ribRenders[] = `getRIB`;
+
+		for ($each in $ribRenders)
+			textScrollList -edit -sc "updateFrameInfo" -a $each ribList;
+ 
+setParent $soundForm;
+	string $renderInfo = `columnLayout -adj 1`;
+		string $minMax = `formLayout`;
+			string $min = `rowLayout -nc 2 -cw2 32 1 -adj 2`;
+				text -fn "boldLabelFont" -l " Min: ";
+				intField minFrameNum;
+			setParent $minMax;
+				
+			string $max = `rowLayout -nc 2 -cw2 32 1 -adj 2`;
+				text -fn "boldLabelFont" -l " Max:  ";
+				intField maxFrameNum;
+				
+	setParent $renderInfo;
+		separator;
+		checkBox -al left -l "Execute after compiling batch" -v 1 exCheckBox;
+		checkBox -en 0 -al left -l "Render Shadow Pass (Once per job)" -v 0 rndrShadPassOnceCheck;
+		checkBox -en 0 -al left -l "Render Shadow Pass (Every frame)" -v 0 rndrShadPassFrameCheck;
+		button -l "Render" -c "makeRIBbatch";
+		button -l "Close" -c "deleteUI PRmanBR";
+		
+		formLayout
+			-edit
+		
+			-af $min "left" 0
+			-af $min "top" 0
+			-af $min "bottom" 0
+			-ap $min "right" 0 50
+			
+			-ap $max "left" 0 50
+			-af $max "top" 0
+			-af $max "bottom" 0
+			-af $max "right" 0
+			
+			$minMax;
+		setParent $renderInfo;
+
+formLayout
+	-edit
+
+	-af $dirControl "left" 0
+	-af $dirControl "top" 0
+	-ac $dirControl "bottom" 0 $fileControl
+	-af $dirControl "right" 0
+	
+	-af $fileControl "left" 0
+	-af $fileControl "top" 22
+	-af $fileControl "bottom" 116
+	-af $fileControl "right" 0
+
+	-af $renderInfo "left" 0
+	-af $renderInfo "bottom" 0
+	-ac $renderInfo top 0 $fileControl
+	-af $renderInfo "right" 0
+	
+	$soundForm;
+		
+textScrollList -edit -si $ribRenders[0] ribList;
+updateFrameInfo;
+
+showWindow PRmanBR;
+}
+
+global proc string[] getRIB()
+{
+string $collectFrameName[];
+string $collectRenderName[];
+string $ribDir = `textField -q -text ribDirField`;
+$fileExists = `filetest -d $ribDir`;
+if (!$fileExists)
+	error "directory not found";
+
+string $files[] = `getFileList -fld $ribDir -fs "*.rib"`;
+
+if(size($files) == 0)
+	error "No rib files found";
+
+for($f=0; $f<`size($files)`; $f++)
+	{
+		string $nameBD[];
+		tokenize $files[$f] "." $nameBD;
+		for($each in $nameBD)
+			{
+				if($each == "shd");
+				else
+					$collectFrameName[$f] = $nameBD[0];
+			}	
+	}
+	
+string $collectRenderName[] = stringArrayRemoveDuplicates ($collectFrameName);
+
+return $collectRenderName;
+}
+
+global proc updateFrameInfo()
+{
+int $lowFrame;
+int $highFrame;
+
+string $ribDir = `textField -q -text ribDirField`;
+$fileExists = `filetest -d $ribDir`;
+if (!$fileExists)
+	error "Directory not found";
+
+string $files[] = `getFileList -fld $ribDir -fs "*.rib"`;
+
+if(size($files) == 0)
+	error "No rib files found";
+
+string $listSel[] = `textScrollList -q -si ribList`;
+string $renderName = $listSel[0];
+int $multiShade;
+int $singleShade;
+
+for($f=0; $f<`size($files)`; $f++)
+	{
+		string $nameBD[];
+		tokenize $files[$f] "." $nameBD;
+		
+		if($nameBD[0] == $renderName)
+			{
+				int $fingMinMax = 0;
+				if($nameBD[`size($nameBD)`-2] == "shd")
+					if(!$multiShade)
+						{
+							$multiShade = 1;
+							$fingMinMax = 1;
+						}
+					
+				if($nameBD[`size($nameBD)`-3] == "shd")
+					if(!$singleShade)
+						{
+							$singleShade = 1;
+							$fingMinMax = 1;
+						}
+				
+				
+				if(!$fingMinMax)
+					{
+						int $frameNum = $nameBD[`size($nameBD)`-2];
+						
+						if($lowFrame > $frameNum)
+							$lowFrame = $frameNum;
+						
+						if($highFrame < $frameNum)
+							$highFrame = $frameNum;
+					}
+			}
+	}
+
+checkBox -edit -en $multiShade -v $multiShade rndrShadPassOnceCheck;
+checkBox -edit -en $singleShade -v $singleShade rndrShadPassFrameCheck;
+	
+intField -edit -v $lowFrame minFrameNum;
+intField -edit -v $highFrame maxFrameNum;
+}
+
+global proc makeRIBbatch()
+{
+int $min = `intField -q -v minFrameNum`;
+int $max = `intField -q -v maxFrameNum`;
+string $listSel[] = `textScrollList -q -si ribList`;
+string $renderName = $listSel[0];
+string $content;
+
+string $ribDir = `textField -q -text ribDirField`;
+$fileExists = `filetest -d $ribDir`;
+if (!$fileExists)
+	error "directory not found";
+
+string $files[] = `getFileList -fld $ribDir -fs "*.rib"`;
+
+if(size($files) == 0)
+	error "No rib files found";
+
+string $file = $ribDir + $renderName + ".bat";
+
+if(`checkBox -q -v rndrShadPassOnceCheck`)
+	{
+		for($f=0; $f<`size($files)`; $f++)
+			{
+				string $nameBD[];
+				tokenize $files[$f] "." $nameBD;
+				
+				if($nameBD[0] == $renderName)
+					if($nameBD[`size($nameBD)`-2] == "shd")
+						$content = $content + "prman \"" + $ribDir + $files[$f] + "\"\n";
+			}
+	}
+	
+if(`checkBox -q -v rndrShadPassFrameCheck`)
+	{		
+		for($f=0; $f<`size($files)`; $f++)
+			{
+				string $nameBD[];
+				tokenize $files[$f] "." $nameBD;
+				
+				if($nameBD[0] == $renderName)
+					if($nameBD[`size($nameBD)`-3] == "shd")
+						$content = $content + "prman \"" + $ribDir + $files[$f] + "\"\n";
+			}
+	}
+
+for($f=0; $f<`size($files)`; $f++)
+	{
+		string $nameBD[];
+		tokenize $files[$f] "." $nameBD;
+		
+		if($nameBD[0] == $renderName)
+			{
+				int $shadow = 0;
+				
+				if($nameBD[`size($nameBD)`-2] == "shd")
+					$shadow = 1;
+				
+				if($nameBD[`size($nameBD)`-3] == "shd")
+					$shadow = 1;
+				
+				if(!$shadow)
+					{
+						int $frameNum = $nameBD[`size($nameBD)`-2];
+						
+						if($frameNum >= $min && $frameNum <= $max)
+							$content = $content + "prman \"" + $ribDir + $files[$f] + "\"\n";
+					}
+			}
+	}
+
+int $fileID = `fopen $file "w"`;
+fprint $fileID $content;
+fclose $fileID;
+print ("File saved to: " + $file + "\n");
+
+if(`checkBox -q -v exCheckBox`)
+	system ("load " + $file);
+}
+
+global proc int pickRIBdir (string $dirPath, string $fileType)
+{
+string $files[] = `getFileList -fld $dirPath -fs "*.rib"`;
+
+if(size($files) == 0)
+	error "No rib files found";
+
+textField -edit -text ($dirPath + "/") ribDirField;
+
+string $ribRenders[] = `getRIB`;
+
+textScrollList -edit -ra ribList;
+
+for ($each in $ribRenders)
+	textScrollList -edit -sc "updateFrameInfo" -a $each ribList;
+
+return 1;
+}

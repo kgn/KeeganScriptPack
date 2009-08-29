@@ -1,0 +1,60 @@
+//Keegan
+//Indirect Parent
+//indirectParent
+//none
+//indirectParent
+//animation
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 1.0
+
+Last Modified:  11-14-2004
+
+Installation:
+	1.Copy this script to your script directory.
+	2.Type indirectParent into Maya's command line.
+	
+	To be used with the Keegan Installer move keeganShelf to 
+	your icons directory.
+	
+Function: Indirect Parent allows for the face joint to be 
+	parented to the head joint with out creating all the 
+	connecting bones. Although this creates a lot of locators 
+	they can easily be turned off. To use this script: select 
+	all the face joints then the joint to be parented to and 
+	run the script. The locators are names based on the joints.
+	
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+global proc indirectParent()
+{
+string $joint[] = `ls -sl -typ joint`;
+
+string $rootJoint = $joint[`size($joint)`-1];
+string $rLocator[] = `spaceLocator`;
+string $rootLocator = `rename $rLocator[0] ($rootJoint + "_Locator")`;
+delete `pointConstraint -weight 1 $rootJoint $rootLocator`;
+makeIdentity -a 1 -t 1 -r 1 -s 1 $rootLocator;
+xform -cp $rootLocator;
+parent $rootLocator $rootJoint;
+
+for($i=0; $i<`size($joint)`-1; $i++)
+	{
+		string $locator[] = `spaceLocator`;
+		delete `pointConstraint -weight 1 $joint[$i] $locator`;
+		makeIdentity -a 1 -t 1 -r 1 -s 1 $locator;
+		xform -cp $locator;
+		parent $joint[$i] $locator;
+		parent $locator[0] $rootLocator;
+		rename $locator[0] ($joint[$i] + "_Locator");
+	}
+	
+select -r $rootJoint;
+}

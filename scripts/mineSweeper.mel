@@ -1,0 +1,318 @@
+//Keegan
+//Mine Sweeper
+//mineSweeper
+//none
+//mineSweeper
+//game
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Function: Creates the minesweeper game for Maya.
+
+Last Updated:(07-02-04)
+
+Install 
+	1. Move "mineSweeper.mel" to you Maya scripts directory.
+	2. Move "mineSweeper_Icons" to your icons directory.
+	3. Launch Maya and type "mineSweeper" into the command line.
+
+Directions:
+	The first window allows you to define the number of rows and mines.
+	
+	Use the numbers to dig up the surrounding mines.  Right clicking 
+	on a block will display a menu to mark the block to help you 
+	indicate whether  the block contain mines.
+	
+	"Reset" will reset the mine field with the current settings and "New"
+	allows you to change the number of rows and mines.
+	
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+Code and/or icons may not be distributed, in part or in whole, 
+with out consent from David Keegan.
+*/
+
+
+global proc mineSweeper()
+{
+if (!`optionVar -exists "mineSweepRow"`)
+	optionVar -intValue "mineSweepRow" 10;
+
+if (!`optionVar -exists "mineSweepMine"`)
+	optionVar -intValue "mineSweepMine" 10;
+
+int $row = `optionVar -q "mineSweepRow"`;
+int $mine = `optionVar -q "mineSweepMine"`;
+
+if(`window -q -ex mineStart`)
+	deleteUI mineStart;
+
+window -t "Mine Sweeper" mineStart;
+string $minStartForm = `formLayout`;
+	string $optionControl = `columnLayout -adj 1`;
+		rowLayout -nc 2 -cw2 30 50 -adj 2;
+			text "Rows";
+			intField -cc "rowMineCheck" -v $row -min 10 -max 40 numRows;
+		setParent..;
+		rowLayout -nc 2 -cw2 30 50 -adj 2;
+			text "Mines";
+			intField -cc "rowMineCheck" -v $mine -min 1 -max (($row*$row)-1) numMines;
+	setParent $minStartForm;
+
+string $buttControl = `button -l "Play" -c "setMinesAndRows"`;
+
+formLayout
+	-edit
+	
+	-af $optionControl "left" 0
+	-af $optionControl "top" 0
+	-af $optionControl "bottom" 22
+	-af $optionControl "right" 0
+
+	-af $buttControl "left" 0
+	-af $buttControl "bottom" 0
+	-ac $buttControl top 0 $optionControl
+	-af $buttControl "right" 0
+	
+	$minStartForm;
+
+window -edit -wh 188 100 mineStart;
+showWindow mineStart;
+}
+
+global proc rowMineCheck()
+{
+int $rows = `intField -q -v numRows`;
+int $mines = `intField -q -v numMines`;
+
+intField -edit -max (($rows*$rows)-1) numMines;
+}
+
+global proc setMinesAndRows()
+{
+int $rows = `intField -q -v numRows`;
+int $mines = `intField -q -v numMines`;
+
+optionVar -intValue "mineSweepRow" $rows;
+optionVar -intValue "mineSweepMine" $mines;
+
+mineField;
+}
+
+global proc mineField()
+{
+if(`window -q -ex mineStart`)
+	deleteUI mineStart;
+
+int $buttWH = 20;
+int $numRows = `optionVar -q "mineSweepRow"`;
+int $numMines = `optionVar -q "mineSweepMine"`;
+int $numButts = $numRows*$numRows;
+global int $realNumMines;
+$realNumMines = 0;
+int $spaceSize = 40;
+
+string $imagepath = `internalVar -ubd` + "mineSweeper_Icons/";
+
+print "Mine Sweeper";
+if(`window -q -ex mineSweep`)
+	deleteUI mineSweep;
+
+window -t "Mine Sweeper" mineSweep;
+columnLayout;
+rowLayout -nc 6 -cw6 2 20 15 40 50 80;
+	text " ";
+	text -l $numMines numMinesText; 
+	text " ";
+	button -h 16 -l "Reset" -c "mineField";
+	button -h 16 -l "New" -c "mineSweeper";
+	text -l " " winLose;
+setParent..;
+
+gridLayout -cwh $buttWH $buttWH -nc $numRows mineGrid;
+	for($b=1; $b<($numButts+1); $b++)
+		{
+			iconTextCheckBox -i1 ($imagepath + "blank.xpm") -l " " -onc ("winLoseCheck " + $b + " 0")("minButt_" + $b);
+				popupMenu;
+					menuItem -l "Flag" -c ("markBlock " + $b + " 1"); 
+					menuItem -l "????" -c ("markBlock " + $b + " 0");
+					menuItem -l "Blank" -c ("markBlock " + $b + " 2");
+		}
+
+for($r=0; $r<$numMines; $r++)
+	{
+		float $randV = `rand 1 $numButts`;
+		int $mineButton = $randV;
+		string $isMine = `iconTextCheckBox -q -l ("minButt_" + $mineButton)`;
+		if($isMine == "  "&& $mineButton!=$numButts)
+			$mineButton = $mineButton+1;
+		iconTextCheckBox -edit -l "  "  -onc ("winLoseCheck " + $mineButton + " 1") ("minButt_" + $mineButton);
+		$realNumMines = $realNumMines + 1;
+	}
+$realNumMines = $realNumMines;
+text -edit -l $realNumMines numMinesText;
+	
+window -edit -wh (($numRows*$buttWH)+10) (($numRows*$buttWH)+52) mineSweep;
+showWindow mineSweep;
+}
+
+global proc markBlock(int $v, int $act)
+{
+string $imagepath = `internalVar -ubd` + "mineSweeper_Icons/";
+int $numMines = `text -q -l numMinesText`;
+string $image = `iconTextCheckBox -q -i1("minButt_" + $v)`;
+if($act==0)
+	iconTextCheckBox -edit -i1 ($imagepath + "question.xpm") ("minButt_" + $v);
+
+
+if($act==1)
+	{
+		iconTextCheckBox -edit -i1 ($imagepath + "flag.xpm") ("minButt_" + $v);
+		text -edit -l ($numMines-1) numMinesText;
+	}
+	
+if($act==2)
+	iconTextCheckBox -edit -i1 ($imagepath + "blank.xpm") ("minButt_" + $v);
+
+if($image == ($imagepath + "flag.xpm"))
+	text -edit -l ($numMines+1) numMinesText;
+}
+
+global proc winLoseCheck (int $v, int $mine)
+{
+global int $realNumMines;
+$numMines = $realNumMines;
+string $imagepath = `internalVar -ubd` + "mineSweeper_Icons/";
+int $numRows = `gridLayout -q -nc mineGrid`;
+int $numButts = $numRows*$numRows;
+int $numFound;
+int $mineBlocks[];
+int $blocks[];
+for($b=1; $b<($numButts+1); $b++)
+	{
+		string $l = `iconTextCheckBox -q -l ("minButt_" + $b)`;
+		int $blocksLeft = `iconTextCheckBox -q -v ("minButt_" + $b)`;
+		
+		if($l=="  ")
+			$mineBlocks[`size($mineBlocks)`] = $b;
+		
+		if($blocksLeft==0)
+			$numFound = $numFound+1;
+	}
+
+if($mine == 1)
+	{
+		for($i=0; $i<`size($mineBlocks)`; $i++)
+			iconTextCheckBox -edit -i1 ($imagepath + "mine.xpm") -en 0 ("minButt_" + $mineBlocks[$i]);
+		text -edit -l "YOU LOSE" winLose;
+		error "YOU LOSE";
+	}
+	
+if(($numFound) == $numMines)
+	{
+			print "YOU WIN";
+			edgeCheck $v;
+			for($i=0; $i<`size($mineBlocks)`; $i++)
+				iconTextCheckBox -edit -i1 ($imagepath + "mine.xpm") -en 0 ("minButt_" + $mineBlocks[$i]);
+			text -edit -l "YOU WIN" winLose;
+	}
+
+else
+	edgeCheck $v;
+}
+
+global proc edgeCheck (int $v)
+{	
+int $adj[];
+int $numRows = `gridLayout -q -nc mineGrid`;
+float $div = $v/$numRows;
+int $corner[];
+
+//row 1	
+if($v==1 && $div==0)
+	$corner[0] = 1;
+
+if(($div+1)>1 && $v>$numRows)
+	{
+		if ((($div*$numRows)+1)!=$v && $corner[0]==0)
+			$adj[`size($adj)`] = $v-$numRows-1;
+		$adj[`size($adj)`] = $v-$numRows;
+		if($div!=0)
+			if (($v/$div)!=$numRows)
+				$adj[`size($adj)`] = $v-$numRows+1;
+		
+	}
+
+//row 2
+if($div==0)
+	{
+		if ((($div*$numRows)+1)!=$v)
+			$adj[`size($adj)`] = $v-1;
+		$adj[`size($adj)`] = $v;
+		$adj[`size($adj)`] = $v+1;
+	}
+
+else
+	{
+		if (($v/$div)!=$numRows)
+			{
+				if ((($div*$numRows)+1)!=$v)
+					$adj[`size($adj)`] = $v-1;
+				$adj[`size($adj)`] = $v;
+				$adj[`size($adj)`] = $v+1;
+			}
+		else	
+			{
+				if ((($div*$numRows)+1)!=$v)
+					$adj[`size($adj)`] = $v-1;
+				$adj[`size($adj)`] = $v;	
+			}
+	}
+
+//row 3	
+if(($numRows-1)!=$div)
+	{
+		if(($numRows*$numRows)!=$v)
+			{
+				if ((($div*$numRows)+1)!=$v)
+					$adj[`size($adj)`] = $v+$numRows-1;
+				$adj[`size($adj)`] = $v+$numRows;
+				if($div==0)
+					$adj[`size($adj)`] = $v+$numRows+1;
+				if($div>0)
+					if (($v/$div)!=$numRows)
+						$adj[`size($adj)`] = $v+$numRows+1;
+			}		
+	}
+mineCheck $adj $v;
+}
+
+global proc mineCheck(int $adj[], int $v)	
+{
+string $imagepath = `internalVar -ubd` + "mineSweeper_Icons/";
+int $numMines;
+for($b=0; $b<`size($adj)`; $b++)
+	{
+		string $l = `iconTextCheckBox -q -l ("minButt_" + $adj[$b])`;
+		if($l=="  ")
+			$numMines = $numMines+1;
+	}
+iconTextCheckBox -edit -st "textOnly" -l $numMines -en 0 ("minButt_" + $v);
+
+if($numMines==0)
+	{
+		for($b=0; $b<`size($adj)`; $b++)
+			{
+				int $used = `iconTextCheckBox -q -v ("minButt_" + $adj[$b])`;
+				int $l = `iconTextCheckBox -q -l ("minButt_" + $adj[$b])`;
+				if ($used==0)
+					{
+						iconTextCheckBox -edit -st "textOnly" -l $numMines -en 0 -v 1 ("minButt_" + $adj[$b]);
+						if($l=="0")
+							edgeCheck $adj[$b];
+					}
+			}
+	}
+}

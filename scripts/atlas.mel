@@ -1,0 +1,1907 @@
+//Keegan
+//Atlas
+//atlas
+//none
+//atlas
+//renderman
+/*
+Author: David Keegan (www.keegan3d.com)
+Copyright (C) 2005 David Keegan
+
+Version: 2.5
+
+Function: Atlas is an interface for changing the 
+	RenderMan Globals. The interface contains all 
+	the functionality of the Maya render globals,
+	such as: default resolutions, the ability to 
+	save and load preferences, and the over all look. 
+	This interface is designed to help the user jump 
+	right into RenderMan.
+
+Install 
+	1. Move atlas.mel to you're Maya scripts directory.
+	2. Move KeeganMan to you're icons directory.
+	2. Type "atlas" into Maya's command line.
+
+History:
+	2.3 - Spelling error: changed "catmull-rum" to "catmull-rom".
+		- Fixed bug that stopped the "AtlasPresets" directory from
+		being created.
+		-Fixed bug that if a preset file is deleted outside of Atlas
+		and it is set as the "Preferred Preset" then the default values 
+		are set as the Preferred Preset.
+		
+History:
+	2.5 - Images can now be rendered and display in the Maya Render View.
+	
+Use and/or modify at your own risk.
+*/
+
+global proc atlas()
+{
+global int $gFirstRun;
+
+if (!`optionVar -ex "atlasPreset"`)
+	optionVar -stringValue "atlasPreset" "atlasDefault";
+
+string $presetDir = `internalVar -uad` + "AtlasPresets/";
+string $presetFiles[] = `getFileList -fld $presetDir -fs "*.kgn"`;
+string $atlasPreset = `optionVar -q "atlasPreset"`;
+
+if($atlasPreset == "atlasDefault");
+else
+	{
+		if(`size($presetFiles)` > 0)
+			{
+				for($each in $presetFiles)
+				{
+					if($each == ($atlasPreset + ".kgn"));
+					else
+						optionVar -stringValue "atlasPreset" "atlasDefault";
+				}
+			}
+		else
+			optionVar -stringValue "atlasPreset" "atlasDefault";
+	}
+			
+if(!`checkBeforeOverwritingSettings`)
+	{
+		if(!$gFirstRun)
+			{
+				if($atlasPreset == "atlasDefault")
+					setDefaultPreset;
+						
+				else
+					loadPRmanPresets $atlasPreset;
+			}
+		
+		else
+			PRmanRenderGlobals;
+	}
+	
+else
+	PRmanRenderGlobals;
+}
+
+global proc PRmanRenderGlobals()
+{
+global int $gImageW;
+global int $gImageH;
+global int $gMaintainWH;
+global int $gFirstRun;
+global int $gImageFileCL;
+global int $gCamCL;
+global int $gRezCL;
+global int $gTestRezCL;
+global int $gCleanCL;
+global int $gMELCL;
+global int $gAnitAliasCL;
+global int $gShadowCL;
+global int $gRayTraceCL;
+global int $gGenAttrCL;
+global int $gIrrCacheCL;
+global int $gPhotonCL;
+global string $gTestRez;
+
+if(!$gFirstRun)
+	{
+		$gFirstRun = 1;
+		$gImageFileCL = 0;
+		$gCamCL = 1;
+		$gRezCL = 0;
+		$gTestRezCL = 1;
+		$gCleanCL = 1;
+		$gMELCL = 1;
+		$gAnitAliasCL = 0;
+		$gShadowCL = 0;
+		$gRayTraceCL = 0;
+		$gGenAttrCL = 1;
+		$gIrrCacheCL = 1;
+		$gPhotonCL = 1;
+		$gTestRez = "updatePRmanWH_1_0";
+	}
+
+string $scriptPath = `internalVar -uad`;
+string $presetDir = $scriptPath + "AtlasPresets/";
+
+if (!`filetest -d $presetDir`) 
+	{
+		chdir $scriptPath;
+		system "mkdir AtlasPresets";
+	}
+
+string $iconDir = `internalVar -ubd` + "KeeganMan/";
+string $melDir = `internalVar -usd`;
+string $presetFiles[] = `getFileList -fld $presetDir -fs "*.kgn"`;
+string $atlasPreset = `optionVar -q "atlasPreset"`;
+
+eval ("mtor control getvalue -sync");
+string $dspyName = `mtor control getvalue -rg dspyName`;
+string $dispServer = `mtor control getvalue -rg dspyServer`;
+string $dispServerMode = `mtor control getvalue -rg dspyServerMode`;
+int $multiFrame = `mtor control getvalue -rg doAnim`;
+float $startFrame = `mtor control getvalue -rg computeStart`;
+float $endFrame = `mtor control getvalue -rg computeStop`;
+int $byFrame = `mtor control getvalue -rg computeBy`;
+float $fps = `mtor control getvalue -rg animFPS`;
+int $rndrObj = `mtor control getvalue -rg objectsOnly`;
+int $rndrLight = `mtor control getvalue -rg lightsOnly`;
+string $cameraUsed = `mtor control getvalue -rg camName`;
+int $dof = `mtor control getvalue -rg doDOF`;
+int $focLookAt = `mtor control getvalue -rg dofUseLookat`;
+int $mBlur = `mtor control getvalue -rg doMotionBlur`;
+int $subMo = `mtor control getvalue -rg blurSubframe`;
+int $camBlur = `mtor control getvalue -rg blurCamera`;
+float $camShutter = `mtor control getvalue -rg shutterAngle`;
+string $shutTime = `mtor control getvalue -rg shutterTiming`;
+string $shutConfig = `mtor control getvalue -rg shutterConfig`;
+int $frontPlane = `mtor control getvalue -rg frontPlane`;
+int $backPlane = `mtor control getvalue -rg backPlane`;
+string $rendererToUse = `mtor control getvalue -rg renderer`;
+string $customRendererInput = `mtor control getvalue -rg customRenderer`;
+string $getFrameWH = `mtor control getvalue -rg dspyRez`;
+string $cleanUpList = `mtor control getvalue -rg jobCleanup`;
+float $shadeRate = `mtor control getvalue -rg shadingRate`;
+int $pixel1 = `mtor control getvalue -rg pixelSamplesX`;
+int $pixel2 = `mtor control getvalue -rg pixelSamplesY`;
+string $pixelFilter = `mtor control getvalue -rg pixelFilter`;
+int $pixel2 = `mtor control getvalue -rg pixelSamplesY`;
+int $filterWidthX = `mtor control getvalue -rg  filterWidthX`;
+int $filterWidthY = `mtor control getvalue -rg  filterWidthY`;
+int $shadeInter = `mtor control getvalue -rg shadingInterp`;
+int $bDice = `mtor control getvalue -rg binaryDice`;
+int $raytrace = `mtor control getvalue -rg rayTrace`;
+float $breadth = `mtor control getvalue -rg traceBreadthSampleFactor`;
+float $depth = `mtor control getvalue -rg traceDepthSampleFactor`;
+float $maxDepth = `mtor control getvalue -rg traceMaxDepth`;
+float $raySpec = `mtor control getvalue -rg traceSpecularThreshold`;
+int $traceMaxSpecularDepth = `mtor control getvalue -rg traceMaxSpecularDepth`;
+int $traceMaxDiffuseDepth = `mtor control getvalue -rg traceMaxDiffuseDepth`;
+int $traceDisplacements = `mtor control getvalue -rg traceDisplacements`;
+int $traceSampleMotion = `mtor control getvalue -rg traceSampleMotion`;
+float $traceBias = `mtor control getvalue -rg traceBias`;
+float $irradianceMaxError = `mtor control getvalue -rg irradianceMaxError`;
+float $irradianceMaxPixelDist = `mtor control getvalue -rg irradianceMaxPixelDist`;
+string $irradianceHandle = `mtor control getvalue -rg irradianceHandle`;
+string $irradianceFileMode = `mtor control getvalue -rg irradianceFileMode`;
+string $photonShadingModel = `mtor control getvalue -rg photonShadingModel`;
+string $photonCausticMap = `mtor control getvalue -rg photonCausticMap`;
+string $photonGlobalMap = `mtor control getvalue -rg photonGlobalMap`;
+int $photonEstimator = `mtor control getvalue -rg photonEstimator`;
+string $computeMaps = `mtor control getvalue -rg computedMaps`;
+string $lazyCompute = `mtor control getvalue -rg lazyCompute`;
+float $shadeBias = `mtor control getvalue -rg shadowBias`;
+
+if($rendererToUse == "render")
+	$rendererToUse = "PRMan";
+
+int $frameW;
+int $frameH;
+
+if(($gImageW + $gImageH) == 0)
+	{
+		string $frameWHbd[];
+		tokenize $getFrameWH " " $frameWHbd;
+		$frameW = $frameWHbd[0];
+		$frameH = $frameWHbd[1];
+		$gImageW = $frameW;
+		$gImageH = $frameH;
+	}
+	
+else
+	{
+		$frameW = $gImageW;
+		$frameH = $gImageH;	
+	}
+
+int $computeValue;
+if($computeMaps == "ignore")
+	$computeValue = 0;
+
+if($computeMaps == "use")
+	$computeValue = 1;
+
+string $cleanUp[];
+tokenize $cleanUpList " " $cleanUp;
+
+mtor control getvalue -sync;
+float $pixelRatio = `mtor control getvalue -rg pixelRatio`;
+string $imageFormats[]=
+	{
+		"it",
+		"combiner",
+		"framebuffer",
+		"file",
+		"tiff",
+		"cineon",
+		"alias",
+		"mayaiff",
+		"targa",
+		"sgif",
+		"picio",
+		"softimage"
+	};
+
+string $whPresets[]=
+	{
+		"custom",
+		"320x240",
+		"640x480",
+		"1k Square",
+		"2k Square",
+		"3k Square",
+		"4k Square",
+		"CCIR PAL/Quantel PAL",
+		"CCIR 601/Quantel NTSC",
+		"Full 1024",
+		"Full 1024/Screen",
+		"HD 720",
+		"HD 1080",
+		"NTSC 4d",
+		"PAL 768",
+		"PAL 780",
+		"Targa 486 (tga)",
+		"Targa NTSC (tga)",
+		"Targa PAL (tga)"
+	};
+		
+string $camList[] = `ls -type "camera"`;
+
+string $aFilt[]=
+{
+	"box",
+	"triangle",
+	"catmull-rom",
+	"sinc",
+	"gaussian",
+	"mitchell",
+	"separable-catmull-rom",
+	"blackman-harris"
+};
+
+string $rendererList[]=
+	{
+		"none",
+		"NetRender",
+		"PRMan",
+		"custom"
+	};
+
+string $shadeModel[]=
+	{
+		"Glass",
+		"Water",
+		"Chrome",
+		"matte",
+		"Transparent"
+	};
+		
+string $bs = "etchedIn";
+
+if (`window -ex PRmanGlobals`)
+	deleteUI PRmanGlobals;
+
+window -mb 1 -h 701 -in "Atlas" -t "Atlas - RenderMan Global Settings" PRmanGlobals;
+	menu -l "Tools ";
+		menuItem -l "It" -c "mtor It";
+		menuItem -d 1;
+		if(`filetest -r ($melDir + "bat.mel")`)
+			menuItem -l "Bat" -c "bat";
+		menuItem -l "Alfred" -c "mtor Alfred";
+		menuItem -d 1;
+		if(`filetest -r ($melDir + "boxer.mel")`)
+			{
+				menuItem -l "Boxer" -c "boxer";
+				menuItem -d 1;
+			}
+		menuItem -l "New Palette" -c "slimmsg slim CreatePalette -new -edit; mtor control dirty;";
+		menuItem -l "Show Palettes" -c "slimmsg slim WindowCmd Show palettes";
+		menuItem -d 1;
+		menuItem -l "RenderMan Controls" -c "mtor RenderGlobals";
+		menuItem -d 1;
+		menuItem -cb 0 -l "Maya Render View" renderInMaya;
+	menu -l "Presets ";
+		menuItem -l "Save Settings as Preset..." -c "namePRmanPreset";
+		menuItem -sm 1 -l "Load Preset" loadMenu;
+			menuItem -l "Default Settings" -c "setDefaultPreset";
+			menuItem -d 1;
+			for($eachPre in $presetFiles)
+				{
+					string $nameBD[];
+					tokenize $eachPre "." $nameBD;
+					menuItem -l $nameBD[0] -c ("loadPRmanPresets " + $nameBD[0]) ($nameBD[0] + "loadMenu");
+				}
+		setParent -m ..;
+		menuItem -sm 1 -l "Delete Preset" deleteMenu;
+			for($eachPre in $presetFiles)
+				{
+					string $nameBD[];
+					tokenize $eachPre "." $nameBD;
+					menuItem -l $nameBD[0] -c ("deletePRmanPreset " + $nameBD[0]) ($nameBD[0] + "deleteMenu");
+				}
+		setParent -m ..;
+		menuItem -sm 1 -l "Set Preferred Preset" preferredMenu;
+			menuItem -cb 0 -l "Default Settings" -c "setPreset atlasDefault" "atlasDefaultsetDefaultMenu";
+			menuItem -d 1;
+			for($eachPre in $presetFiles)
+				{
+					string $nameBD[];
+					tokenize $eachPre "." $nameBD;
+					menuItem -cb 0 -l $nameBD[0] -c ("setPreset " + $nameBD[0]) ($nameBD[0] + "setDefaultMenu");
+				}
+			menuItem -edit -cb 1 ($atlasPreset + "setDefaultMenu");
+		setParent -m ..;
+	menu -l "Help";
+		menuItem -l "RenderMan Documentation" -c "showHelp -a \"file:///c:/Program%20Files/Pixar/docs-6.0/index.html\"";
+string $baseForm = `formLayout`;
+	string $topControl = `frameLayout -bs $bs -lv 0`;
+		int $shelfButt = 34;
+		rowLayout -nc 2 -cw2 1 $shelfButt -adj 1;
+			gridLayout -nc 5 -cwh 46 $shelfButt;
+				shelfButton -l "Show Palettes" -i "pxsl.xpm" -c "slimmsg slim WindowCmd Show palettes";
+				shelfButton -l "Alfred" -i "pxalf.xpm" -c "mtor Alfred";
+				shelfButton -l "It" -i "pxit.xpm" -c "mtor It";
+				if(`filetest -r ($melDir + "bat.mel")`)
+					shelfButton -l "Bat" -i ($iconDir + "bat.xpm") -c "bat";
+				if(`filetest -r ($melDir + "boxer.mel")`)
+				shelfButton -l "Boxer" -i ($iconDir + "boxer.xpm") -c "boxer";
+			setParent..;
+			
+			shelfButton -w $shelfButt -h $shelfButt -l "RenderMan Globals" -i "pxrg.xpm" -c "mtor RenderGlobals";
+	setParent $baseForm;
+	
+	string $settingsControl = `tabLayout`;
+		scrollLayout -cr 1 -hst 0 "Output Settings";
+			string $displayCol = `columnLayout -adj 1`;
+				frameLayout 
+					-bs $bs
+					-cc "$gImageFileCL = 1"
+					-ec "$gImageFileCL = 0"
+					-cl $gImageFileCL 
+					-cll 1 
+					"Image File Output";
+					columnLayout -adj 1;
+					textFieldGrp
+						-cc "mtor control setvalue -rg dspyName -value `textFieldGrp -q -text imageNameField`"
+						-text $dspyName
+						-l "File Name Prefix"
+						imageNameField;
+					
+					optionMenuGrp 
+						-cc "mtor control setvalue -rg dspyServer -value `optionMenuGrp -q -v dispServer`" 
+						-cal 1 right 
+						-cw 1 141 
+						-l "Image Display"
+						dispServer;
+					for($format in $imageFormats)
+						menuItem -l $format;
+					optionMenuGrp -edit -v $dispServer dispServer;
+					
+					separator;
+					
+					PRmanCheckBox "Multiple Frames" multiFramesCheck;
+					checkBox -edit -v $multiFrame multiFramesCheck;
+					floatFieldGrp
+						-pre 2
+						-cc "changeStartFrame"
+						-l "Start Frame"
+						-v1 $startFrame 
+						-en $multiFrame 
+						startFrameField;
+					popupMenu;
+						menuItem -l "Get from Maya" -c "floatFieldGrp -edit -v1 `playbackOptions -q -min` startFrameField; changeStartFrame";
+						
+					floatFieldGrp
+						-pre 2
+						-cc "changeEndFrame"
+						-l "End Frame"
+						-v1 $endFrame 
+						-en $multiFrame
+						endFrameField;
+					popupMenu;
+						menuItem -l "Get from Maya" -c "floatFieldGrp -edit -v1 `playbackOptions -q -max` endFrameField; changeEndFrame";
+
+					intFieldGrp
+						-l "By Frame"
+						-cc "mtor control setvalue -rg computeBy -value `intFieldGrp -q -v1 byFrameField`"
+						-v1 $byFrame
+						byFrameField;
+						
+					separator;
+					
+					floatFieldGrp
+						-pre 2
+						-l "Frames Per Second"
+						-cc "mtor control setvalue -rg animFPS -value `floatFieldGrp -q -v1 fpsField`"
+						-v1 $fps
+						fpsField;
+					popupMenu;
+						menuItem -l "Get from Maya" -c "getMayaFPS";
+						
+					separator;
+
+					optionMenuGrp
+						-cc "mtor control setvalue -rg objectsOnly -value (`optionMenuGrp -q -sl rndrObjList`-1)"
+						-cal 1 right
+						-cw 1 141 
+						-l "Renderable Objects"
+						rndrObjList;
+						menuItem -l "Render All";
+						menuItem -l "Render Active";
+					optionMenuGrp -edit -sl ($rndrObj+1) rndrObjList;
+					
+					optionMenuGrp 
+						-cc "mtor control setvalue -rg lightsOnly -value (`optionMenuGrp -q -sl rndrLightList`-1)"
+						-cal 1 right
+						-cw 1 141 
+						-l "Renderable Lights" 
+						rndrLightList;
+						menuItem -l "Render All";
+						menuItem -l "Render Active";
+					optionMenuGrp -edit -sl ($rndrLight+1) rndrLightList;
+					
+					separator;
+					
+					optionMenuGrp 
+						-cc "mtor control setvalue -rg camName -value `optionMenuGrp -q -v cameraList`"
+						-cal 1 right 
+						-cw 1 141 
+						-l "Camera" 
+						cameraList;
+					for($camera in $camList)
+						menuItem -l $camera;
+
+					optionMenuGrp -edit -v $cameraUsed cameraList;
+					
+					PRmanCheckBox "Alpha Channel (Mask)" aCheck;
+					PRmanCheckBox "Depth Channel (Z Depth)" zCheck;
+
+					if($dispServerMode == "rgba")
+						{
+							checkBox -edit -v 1 aCheck;
+							checkBox -edit -v 0 zCheck;
+						}
+						
+					if($dispServerMode == "rgbaz")
+						{
+							checkBox -edit -v 1 aCheck;
+							checkBox -edit -v 1 zCheck;
+						}
+						
+					if($dispServerMode == "rgbz")
+						{
+							checkBox -edit -v 0 aCheck;
+							checkBox -edit -v 1 zCheck;
+						}
+						
+					frameLayout
+						-cc "$gCamCL = 1"
+						-ec "$gCamCL = 0"
+						-bs $bs
+						-cl $gCamCL 
+						-cll 1 
+						"Camera";
+						columnLayout -adj 1;
+							PRmanCheckBox "Depth of Field" dofCheck;
+							checkBox -edit -v $dof dofCheck;
+
+							PRmanCheckBox "Focus on Lookat" focLookAtCheck;
+							checkBox -edit -en $dof -v $focLookAt focLookAtCheck;
+							
+							separator;
+							
+							PRmanCheckBox "Motion Blur" mBlurCheck;
+							checkBox -edit -v $mBlur mBlurCheck;
+							
+							PRmanCheckBox "Subframe Motion" subMoCheck;
+							checkBox -edit -en $mBlur -v $subMo subMoCheck;
+							
+							PRmanCheckBox "Blur Camera" camBlurCheck;
+							checkBox -edit -en $mBlur -v $camBlur camBlurCheck;
+							
+							intFieldGrp
+								-cc "mtor control setvalue -rg shutterAngle -value `intFieldGrp -q -v1 camShutterField`"
+								-l "Shutter Angle"
+								-v1 $camShutter
+								-en $mBlur
+								camShutterField;
+							
+							optionMenuGrp
+								-en $mBlur
+								-cc "changeShutterTime"
+								-cal 1 right 
+								-cw 1 141 
+								-l "Shutter Timing" 
+								shutTimeList;
+							
+							menuItem -l "Open on Frame";
+							menuItem -l "Center on Frame";
+							menuItem -l "Closed on Frame";
+							
+							if($shutTime == "frameOpen")
+								optionMenuGrp -edit -sl 1 shutTimeList;
+							
+							if($shutTime == "frameCenter")
+								optionMenuGrp -edit -sl 2 shutTimeList;
+							
+							if($shutTime == "frameClose")
+								optionMenuGrp -edit -sl 3 shutTimeList;
+							
+							optionMenuGrp
+								-en $mBlur
+								-cc "changeShutterConfig"
+								-cal 1 right 
+								-cw 1 141 
+								-l "Shutter Config" 
+								shutConfigList;
+							
+							menuItem -l "moving";
+							menuItem -l "stationary";
+							
+							optionMenuGrp -edit -v $shutConfig shutConfigList;
+							
+							separator;
+						
+							PRmanCheckBox "Front Plane" frontPlaneCheck;
+							checkBox -edit -v $frontPlane frontPlaneCheck;
+							
+							PRmanCheckBox "Back Plane" backPlaneCheck;
+							checkBox -edit -v $backPlane backPlaneCheck;
+							
+						setParent..;
+					setParent..;
+
+					optionMenuGrp
+						-cc "mtor control setvalue -rg renderer -value `optionMenuGrp -q -v renderList`; if(`optionMenuGrp -q -v renderList` == \"custom\") textFieldGrp -edit -en 1 customRendererField; else textFieldGrp -edit -en 0 customRendererField"
+						-cal 1 right 
+						-cw 1 141 
+						-l "Renderer" 
+						renderList;
+					for($renderer in $rendererList)
+						menuItem -l $renderer;
+					optionMenuGrp -edit -v $rendererToUse renderList;
+					
+					textFieldGrp -text $customRendererInput -cc "mtor control setvalue -rg customRenderer -value `textFieldGrp -q -text customRendererField`" -en 0 -l "Custom Renderer" customRendererField;
+					if($rendererToUse == "custom")
+						textFieldGrp -edit -en 1 customRendererField;
+					
+				setParent $displayCol;
+				
+				frameLayout 
+					-cc "$gRezCL = 1"
+					-ec "$gRezCL = 0"
+					-bs $bs 
+					-cl $gRezCL 
+					-cll 1 
+					"Resolution";
+					columnLayout -adj 1;
+					optionMenuGrp 
+						-cc "setPresetRez" 
+						-cal 1 right 
+						-cw 1 141 
+						-l "Presets"
+						rezPreset;
+					for($rezPreset in $whPresets)
+						menuItem -l $rezPreset;
+					
+					separator;
+					
+					PRmanCheckBox "Maintain Width/Height Ratio" maintainRes;
+					checkBox -edit -v $gMaintainWH maintainRes;
+					
+					intFieldGrp
+						-cc "changeImageW"
+						-l "Width" 
+						-v1 $frameW  
+						widthField;
+					intFieldGrp 
+						-cc "changeImageH"
+						-l "Height"
+						-v1 $frameH  
+						heightField;
+					
+					updatePresetRez $frameW $frameH;
+						
+					frameLayout
+						-cc "$gTestRezCL = 1"
+						-ec "$gTestRezCL = 0"
+						-bs $bs
+						-cl $gTestRezCL 
+						-cll 1 
+						-l "Test Resolution";
+						columnLayout -adj 1;
+							radioCollection testRezRadio;
+								PRmanRadioButton ("Render Globals (" + `convertToInt $frameW 1` + " x " + `convertToInt $frameH 1` + ")") "updatePRmanWH 1.0";
+								PRmanRadioButton ("50% Globals (" + `convertToInt $frameW 0.5` + " x " + `convertToInt $frameH 0.5` + ")") "updatePRmanWH 0.5";
+								PRmanRadioButton ("25% Globals (" + `convertToInt $frameW 0.25` + " x " + `convertToInt $frameH 0.25` + ")") "updatePRmanWH 0.25";
+								PRmanRadioButton ("10% Globals (" + `convertToInt $frameW 0.1` + " x " + `convertToInt $frameH 0.1` + ")") "updatePRmanWH 0.1";
+								
+							radioCollection -edit -sl $gTestRez testRezRadio;
+						setParent..;
+					setParent..;
+						
+					floatFieldGrp 
+						-pre 2
+						-cc "mtor control setvalue -rg pixelRatio -value `floatFieldGrp -q -v1 pixelRatio`"
+						-v1 $pixelRatio 
+						-l "Pixel Aspect Ratio"
+						pixelRatio;
+
+				setParent $displayCol;
+				frameLayout
+					-cc "$gCleanCL = 1"
+					-ec "$gCleanCL = 0"
+					-bs $bs 
+					-cl $gCleanCL 
+					-cll 1 
+					"Clean Up";
+					columnLayout -adj 1;
+						PRmanCheckBox "RIB Files" "cleanUpList rib";
+						PRmanCheckBox "Shadow Maps: Animated (once per frame) computed maps" "cleanUpList map";
+						PRmanCheckBox "Textures: Animated (once per frame) Pixar format textures" "cleanUpList tex";
+						PRmanCheckBox "jMaps: Once per job computed maps" "cleanUpList jmap";
+						PRmanCheckBox "jTextures: Once per job computed Pixar format textures" "cleanUpList jtex";
+
+						for($clean in $cleanUp)
+							checkBox -edit -v 1 ("cleanUpList_" + $clean);
+						
+				setParent $displayCol;
+
+		setParent $settingsControl;
+		scrollLayout -cr 1 -hst 0 "Quality Settings";
+			string $qualityCol = `columnLayout -adj 1`;
+				frameLayout 
+					-cc "$gAnitAliasCL = 1"
+					-ec "$gAnitAliasCL = 0"
+					-bs $bs 
+					-cl $gAnitAliasCL 
+					-cll 1 
+					"Anti-aliasing Quality";
+					columnLayout -adj 1;
+						floatFieldGrp
+							-pre 2
+							-cc "mtor control setvalue -rg shadingRate -value `floatFieldGrp -q -v1 shadeRateField`"
+							-v1 $shadeRate 
+							-l "Shadeing Rate"
+							shadeRateField;
+						
+						intFieldGrp
+							-cc "mtor control setvalue -rg pixelSamplesX -value `intFieldGrp -q -v1 pixelSamplesField`; mtor control setvalue -rg pixelSamplesY -value `intFieldGrp -q -v2 pixelSamplesField`"
+							-v1 $pixel1
+							-v2 $pixel2
+							-nf 2 
+							-l "Pixel Samples"
+							pixelSamplesField;
+						
+						separator;
+						
+						optionMenuGrp
+							-cc "mtor control setvalue -rg pixelFilter -value `optionMenuGrp -q -v pixelFilterMenu`"
+							-cal 1 right 
+							-cw 1 141 
+							-l "Pixel Filter"
+							pixelFilterMenu;
+						for($filter in $aFilt)
+							menuItem -l $filter;
+						optionMenuGrp -edit -v $pixelFilter pixelFilterMenu;
+						
+						floatFieldGrp
+							-pre 2
+							-cc "mtor control setvalue -rg filterWidthX -value `floatFieldGrp -q -v1 filterWidthField`; mtor control setvalue -rg filterWidthY -value `floatFieldGrp -q -v2 filterWidthField`;"
+							-v1 $filterWidthX
+							-v2 $filterWidthY
+							-l "Filter Width"
+							-nf 2
+							filterWidthField;
+						
+						separator;
+						
+						PRmanCheckBox "Shading Interpolation" shadeInterpCheck;
+						checkBox -edit -v $shadeInter shadeInterpCheck;
+						
+						PRmanCheckBox "Binary Dicing" bDiceCheck;
+						checkBox -edit -v $bDice bDiceCheck;
+						
+				setParent $qualityCol;
+				frameLayout 
+					-cc "$gShadowCL = 1"
+					-ec "$gShadowCL = 0"
+					-bs $bs 
+					-cl $gShadowCL 
+					-cll 1 
+					"Shadow Options";
+					columnLayout -adj 1;
+						PRmanCheckBox "Computed Maps" computeMapCheck;
+						checkBox -edit -v $computeValue computeMapCheck;
+						
+						optionMenuGrp 
+							-cc "mtor control setvalue -rg lazyCompute -value `optionMenuGrp -q -v lazyComputeList`"
+							-cal 1 right
+							-cw 1 141 
+							-l "Lazy Compute" 
+							lazyComputeList;
+							menuItem -l "off";
+							menuItem -l "maps";
+							menuItem -l "all";
+						optionMenuGrp -edit -v $lazyCompute lazyComputeList;
+						
+						floatFieldGrp
+							-pre 2
+							-cc "mtor control setvalue -rg shadowBias -value `floatFieldGrp -q -v1 shadeBias`"
+							-l "Shadow Bias"
+							-v1 $shadeBias
+							shadeBias;
+						
+				setParent $qualityCol;
+				frameLayout
+					-cc "$gRayTraceCL = 1"
+					-ec "$gRayTraceCL = 0"
+					-bs $bs 
+					-cl $gRayTraceCL 
+					-cll 1 
+					"Raytracing Quality";
+					columnLayout -adj 1;
+						PRmanCheckBox "Raytracing" traceEn;
+						checkBox -edit -v $raytrace traceEn;
+						floatFieldGrp 
+							-pre 2
+							-cc "mtor control setvalue -rg traceBreadthSampleFactor -value `floatFieldGrp -q -v1 traceBreadthField`"
+							-v1 $breadth 
+							-en $raytrace 
+							-l "Trace Breadth Factor" 
+							traceBreadthField;
+						floatFieldGrp
+							-pre 2
+							-cc "mtor control setvalue -rg traceDepthSampleFactor -value `floatFieldGrp -q -v1 traceDepthField`"
+							-v1 $depth 
+							-en $raytrace 
+							-l "Trace Depth Factor"
+							traceDepthField;
+						
+						floatFieldGrp
+							-pre 2
+							-cc "mtor control setvalue -rg traceMaxDepth -value `floatFieldGrp -q -v1 maxRayField`"
+							-v1 $maxDepth
+							-en $raytrace 
+							-l "Max Ray Depth" 
+							maxRayField;
+						floatFieldGrp
+							-pre 2
+							-cc "mtor control setvalue -rg traceSpecularThreshold -value `floatFieldGrp -q -v1 specRayField`"
+							-v1 $raySpec
+							-en $raytrace
+							-l "Specular Threshold" 
+							specRayField;
+				
+				frameLayout 
+					-cc "$gGenAttrCL = 1"
+					-ec "$gGenAttrCL = 0"
+					-bs $bs 
+					-cl $gGenAttrCL 
+					-cll 1 
+					"General Attributes";
+					columnLayout -adj 1;
+					
+					PRmanCheckBox "Trace Displacements" traceDisCheck;
+					checkBox -edit -v $traceDisplacements traceDisCheck;
+
+					PRmanCheckBox "Sample Motion" sampMotionCheck;
+					checkBox -edit -v $traceSampleMotion sampMotionCheck;
+					
+					intFieldGrp
+						-l "Max Specular Depth"
+						-v1 $traceMaxSpecularDepth
+						-cc "mtor control setvalue -rg traceMaxSpecularDepth -value `intFieldGrp -q -v1 maxSpecDepthField`"
+						maxSpecDepthField;
+					
+					intFieldGrp
+						-l "Max Diffuse Depth"
+						-v1 $traceMaxDiffuseDepth
+						-cc "mtor control setvalue -rg traceMaxDiffuseDepth -value `intFieldGrp -q -v1 maxDiffDepthField`"
+						maxDiffDepthField;
+					
+					floatFieldGrp
+						-pre 2
+						-l "Trace Bias"
+						-v1 $traceBias
+						-cc "mtor control setvalue -rg traceBias -value `floatFieldGrp -q -v1 traceBiasField`"
+						traceBiasField;
+					
+					setParent..;
+				setParent..;
+				frameLayout
+					-cc "$gIrrCacheCL = 1"
+					-ec "$gIrrCacheCL = 0"
+					-bs $bs 
+					-cl $gIrrCacheCL 
+					-cll 1 
+					"Irradiance Chache";
+					columnLayout -adj 1;
+						floatFieldGrp
+							-pre 2
+							-l "Max Error"
+							-v1 $irradianceMaxError
+							-cc "mtor control setvalue -rg irradianceMaxError -value `floatFieldGrp -q -v1 maxErrorField`"
+							maxErrorField;
+						
+						floatFieldGrp
+							-pre 2
+							-l "Max Pixel Distance"
+							-v1 $irradianceMaxPixelDist
+							-cc "mtor control setvalue -rg irradianceMaxPixelDist -value `floatFieldGrp -q -v1 maxPixelDistField`"
+							maxPixelDistField;
+						
+						textFieldButtonGrp 
+							-l "Cache File"
+							-cc "mtor control setvalue -rg irradianceHandle -value `textFieldButtonGrp -q -text cacheFileField`"
+							-text $irradianceHandle 
+							-bl "file"
+							-bc "openCacheFile"
+							cacheFileField;
+						
+						optionMenuGrp
+							-cc "mtor control setvalue -rg irradianceFileMode -value `optionMenuGrp -q -v cacheModeList`"
+							-cal 1 right
+							-cw 1 141 
+							-l "Lazy Compute"
+							cacheModeList;
+						
+							menuItem -l "ignore";
+							menuItem -l "Read";
+							menuItem -l "Write";
+							
+						optionMenuGrp -edit -v $irradianceFileMode cacheModeList;
+					
+					setParent..;
+				setParent..;
+				frameLayout 
+					-cc "$gPhotonCL = 1"
+					-ec "$gPhotonCL = 0"
+					-bs $bs 
+					-cl $gPhotonCL 
+					-cll 1 
+					"Photon Mapping";
+					columnLayout -adj 1;
+						optionMenuGrp
+							-cc "mtor control setvalue -rg photonShadingModel -value `optionMenuGrp -q -v shadeModList`"
+							-cal 1 right
+							-cw 1 141 
+							-l "Shading Model"
+							shadeModList;
+						
+							for($eachMod in $shadeModel)
+								menuItem -l $eachMod;
+							
+						optionMenuGrp -edit -v $photonShadingModel shadeModList;
+						
+						textFieldButtonGrp 
+							-l "Caustic Map File"
+							-cc "mtor control setvalue -rg photonCausticMap -value `textFieldButtonGrp -q -text cacheFileField`"
+							-text $irradianceHandle 
+							-bl "file"
+							-bc "photonMapFile"
+							photonMapField;
+						
+						textFieldButtonGrp 
+							-l "Global Map File"
+							-cc "mtor control setvalue -rg photonGlobalMap -value `textFieldButtonGrp -q -text cacheFileField`"
+							-text $irradianceHandle 
+							-bl "file"
+							-bc "photonGlobalMapFile"
+							photonGlobalMapFileField;
+						
+						intFieldGrp
+							-l "Estimator"
+							-v1 $photonEstimator
+							-cc "mtor control setvalue -rg photonEstimator -value `intFieldGrp -q -v estimateField`"
+							estimateField;
+
+setParent $baseForm;
+	string $butts = `columnLayout -adj 1`;
+		button -h 32 -l "Render" -c "renderCheck";
+		button -l "Close" -c "deleteUI PRmanGlobals";
+
+formLayout
+	-edit
+
+	-af $topControl "left" 0
+	-af $topControl "top" 0
+	-ac $topControl "bottom" 0 $settingsControl
+	-af $topControl "right" 0
+	
+	-af $settingsControl "left" 0
+	-af $settingsControl "top" 38
+	-af $settingsControl "bottom" 54
+	-af $settingsControl "right" 0
+
+	-af $butts "left" 0
+	-af $butts "bottom" 0
+	-ac $butts top 0 $settingsControl
+	-af $butts "right" 0
+	
+	$baseForm;
+
+window -edit -w 479 PRmanGlobals;
+showWindow PRmanGlobals;
+}
+
+global proc renderCheck()
+{
+int $v = `menuItem -q -cb renderInMaya`;
+
+if($v == 0)
+	mtor RenderSpool;
+
+if($v == 1)
+	PRmanInMayaRenderview;
+}
+
+global proc setPreset (string $presetName)
+{
+string $scriptDir = `internalVar -uad` + "AtlasPresets/";
+string $presetFiles[] = `getFileList -fld $scriptDir -fs "*.kgn"`;
+
+for($eachPre in $presetFiles)
+	{
+		string $fileBD[];
+		tokenize $eachPre "." $fileBD;
+		menuItem -edit -cb 0 ($fileBD[0] + "setDefaultMenu");
+		menuItem -edit -cb 0 "atlasDefaultsetDefaultMenu";
+	}
+menuItem -edit -cb 1 ($presetName + "setDefaultMenu");
+optionVar -stringValue "atlasPreset" $presetName;
+
+if($presetName == "atlasDefault")
+	setDefaultPreset;
+	
+else
+	loadPRmanPresets $presetName;
+}
+
+global proc getMayaFPS()
+{
+string $timeFPS = `currentUnit -q -t`;
+float $frameRate = 24;
+if ($timeFPS == "game")
+	$frameRate = 15;
+if ($timeFPS == "film")
+	$frameRate = 24;
+if ($timeFPS == "pal")
+	$frameRate = 25;
+if ($timeFPS == "ntsc")
+	$frameRate = 30;
+if ($timeFPS == "show")
+	$frameRate = 48;
+if ($timeFPS == "palf")
+	$frameRate = 50;
+if ($timeFPS == "ntscf")
+	$frameRate = 60;
+
+mtor control setvalue -rg animFPS -value $frameRate;
+floatFieldGrp -edit -v1 $frameRate fpsField;
+}
+
+global proc openCacheFile()
+{	
+string $cacheFile = `fileDialog`;
+
+textFieldButtonGrp -edit -text $cacheFile cacheFileField;
+mtor control setvalue -rg irradianceHandle -value $cacheFile;
+}
+
+global proc photonMapFile()
+{	
+string $cacheFile = `fileDialog`;
+
+textFieldButtonGrp -edit -text $cacheFile photonMapField;
+mtor control setvalue -rg photonCausticMap -value $cacheFile;
+}
+
+global proc photonGlobalMapFile()
+{	
+string $cacheFile = `fileDialog`;
+
+textFieldButtonGrp -edit -text $cacheFile photonGlobalMapFileField;
+mtor control setvalue -rg photonGlobalMap -value $cacheFile;
+}
+
+global proc int convertToInt(float $x, float $y)
+{
+float $float = $x*$y;
+int $int = $float;
+return $int;
+}
+
+global proc maintainRes()
+{
+global int $gMaintainWH;
+$gMaintainWH = `checkBox -q -v maintainRes`;
+}
+
+global proc cleanUpList(string $null)
+{
+string $return;
+string $checkBox[]=
+	{
+		"rib",
+		"map",	
+		"tex",
+		"jmap",
+		"jtex"
+	};
+
+for($each in $checkBox)
+	{
+		if(`checkBox -q -v ("cleanUpList_" + $each)`)
+			$return = $return + " " + $each;
+	}
+
+mtor control setvalue -rg jobCleanup -value $return;
+}
+
+global proc PRmanRadioButton(string $name, string $nodeName)
+{
+rowLayout -nc 2 -cw2 140 1 -adj 2;
+	text " ";
+	radioButton -l $name -cc $nodeName $nodeName;
+setParent..;
+}
+	
+global proc PRmanCheckBox(string $name, string $nodeName)
+{
+rowLayout -nc 2 -cw2 140 1 -adj 2;
+	text " ";
+	checkBox -l $name -cc $nodeName $nodeName;
+setParent..;
+}
+
+global proc multiFramesCheck()
+{
+int $v = `checkBox -q -v multiFramesCheck`;
+
+mtor control setvalue -rg doAnim -value $v;
+floatFieldGrp -edit -en $v startFrameField;
+floatFieldGrp -edit -en $v endFrameField;
+}
+
+global proc setPresetRez()
+{
+int $sel = `optionMenuGrp -q -sl rezPreset`;
+
+if($sel > 1)
+	{
+		int $w;
+		int $h;
+		
+		switch ($sel)
+			{
+			case 2:
+				{
+					$w = 320;
+					$h = 240;
+				}
+			break;
+			
+			case 3:
+				{
+					$w = 640;
+					$h = 480;
+				}
+			break;
+			
+			case 4:
+				{
+					$w = 1024;
+					$h = 1024;
+				}
+			break;
+			
+			case 5:
+				{
+					$w = 2048;
+					$h = 2048;
+				}
+			break;
+			
+			case 6:
+				{
+					$w = 3072;
+					$h = 3072;
+				}
+			break;
+			
+			case 7:
+				{
+					$w = 4096;
+					$h = 4096;
+				}
+			break;
+			
+			case 8:
+				{
+					$w = 720;
+					$h = 576;
+				}
+			break;
+			
+			case 9:
+				{
+					$w = 720;
+					$h = 486;
+				}
+			break;
+			
+			case 10:
+				{
+					$w = 1024;
+					$h = 768;
+				}
+			break;
+			
+			case 11:
+				{
+					$w = 1280;
+					$h = 1024;
+				}
+			break;
+			
+			case 12:
+				{
+					$w = 1280;
+					$h = 720;
+				}
+			break;
+			
+			case 13:
+				{
+					$w = 1920;
+					$h = 1080;
+				}
+			break;
+			
+			case 14:
+				{
+					$w = 646;
+					$h = 485;
+				}
+			break;
+			
+			case 15:
+				{
+					$w = 768;
+					$h = 576;
+				}
+			break;
+			
+			case 16:
+				{
+					$w = 780;
+					$h = 576;
+				}
+			break;
+			
+			case 17:
+				{
+					$w = 512;
+					$h = 486;
+				}
+			break;
+			
+			case 18:
+				{
+					$w = 512;
+					$h = 482;
+				}
+			break;
+			
+			case 19:
+				{
+					$w = 512;
+					$h = 576;
+				}
+			break;
+			}
+		intFieldGrp -edit -v1 $w widthField;
+		intFieldGrp -edit -v1 $h heightField;
+		changeImageWH $w $h;
+	}
+}
+
+global proc updatePresetRez(int $w, int $h)
+{
+int $v = 1;
+
+if($w == 320 && $h == 240)
+	$v = 2;
+
+if($w == 640 && $h == 480)
+	$v = 3;
+
+if($w == 1024 && $h == 1024)
+	$v = 4;
+
+if($w == 2048 && $h == 2048)
+	$v = 5;
+
+if($w == 3072 && $h == 3072)
+	$v = 6;
+
+if($w == 4096 && $h == 4096)
+	$v = 7;
+
+if($w == 720 && $h == 576)
+	$v = 8;
+
+if($w == 720 && $h == 486)
+	$v = 9;
+
+if($w == 1024 && $h == 768)
+	$v = 10;
+
+if($w == 1280 && $h == 1024)
+	$v = 11;
+
+if($w == 1280 && $h == 720)
+	$v = 12;
+
+if($w == 1920 && $h == 1080)
+	$v = 13;
+
+if($w == 646 && $h == 485)
+	$v = 14;
+
+if($w == 768 && $h == 576)
+	$v = 15;
+
+if($w == 780 && $h == 576)
+	$v = 16;
+
+if($w == 512 && $h == 486)
+	$v = 17;
+
+if($w == 512 && $h == 482)
+	$v = 18;
+
+if($w == 512 && $h == 576)
+	$v = 19;
+
+optionMenuGrp -edit -sl $v rezPreset;
+}
+
+global proc changeImageW()
+{
+global int $gImageW;
+global int $gImageH;
+
+float $w = `intFieldGrp -q -v1 widthField`;
+float $h = `intFieldGrp -q -v1 heightField`;
+
+if(`checkBox -q -v maintainRes`)
+	{
+		float $increse = $w/$gImageW;
+		$h = $increse*$h;
+		intFieldGrp -edit -v1 $h heightField;
+	}
+
+changeImageWH $w $h;
+}
+
+global proc changeImageH()
+{
+global int $gImageW;
+global int $gImageH;
+
+float $w = `intFieldGrp -q -v1 widthField`;
+float $h = `intFieldGrp -q -v1 heightField`;
+
+if(`checkBox -q -v maintainRes`)
+	{
+		float $increse = $h/$gImageH;
+		$w = $increse*$w;
+		intFieldGrp -edit -v1 $w widthField;
+	}
+
+changeImageWH $w $h;
+}
+
+global proc changeImageWH(int $w, int $h)
+{
+global int $gImageW;
+global int $gImageH;
+
+string $radio = `radioCollection -q -sl testRezRadio`;
+
+string $radioBD[];
+tokenize $radio "_"$radioBD;
+string $fs = $radioBD[`size($radioBD)`-2] + "." + $radioBD[`size($radioBD)`-1];
+float $f = $fs;
+
+int $wI = $w;
+int $hI = $h;
+	
+mtor control setvalue -rg dspyRez -value ($wI + " " + $hI);
+$gImageW = $wI;
+$gImageH = $hI;
+
+radioButton -edit -l ("Render Globals (" + `convertToInt $w 1` + " x " + `convertToInt $h 1` + ")") "updatePRmanWH_1_0";
+radioButton -edit -l ("50% Globals (" + `convertToInt $w 0.5` + " x " + `convertToInt $h 0.5` + ")") "updatePRmanWH_0_5";
+radioButton -edit -l ("25% Globals (" + `convertToInt $w 0.25` + " x " + `convertToInt $h 0.25` + ")") "updatePRmanWH_0_25";
+radioButton -edit -l ("10% Globals (" + `convertToInt $w 0.1` + " x " + `convertToInt $h 0.1` + ")") "updatePRmanWH_0_1";
+
+updatePRmanWH $f;
+updatePresetRez $wI $hI;
+}
+
+global proc updatePRmanWH(float $f)
+{
+global string $gTestRez;
+
+string $radio = `radioCollection -q -sl testRezRadio`;
+float $w = `intFieldGrp -q -v1 widthField`;
+float $h = `intFieldGrp -q -v1 heightField`;
+
+mtor control setvalue -rg dspyRez -value (($w*$f) + " " + ($h*$f));
+
+$gTestRez = $radio;
+}
+
+global proc aCheck()
+{
+changeServerMode;
+}
+
+global proc zCheck()
+{
+changeServerMode;
+}
+
+global proc changeServerMode()
+{
+int $a = `checkBox -q -v aCheck`;
+int $z = `checkBox -q -v zCheck`;
+
+if($a)
+	mtor control setvalue -rg dspyServerMode -value "rgba";
+	
+if($z)
+	mtor control setvalue -rg dspyServerMode -value "rgbz";
+	
+if($a && $z)
+	mtor control setvalue -rg dspyServerMode -value "rgbaz";
+
+if(!$a && !$z)
+	mtor control setvalue -rg dspyServerMode -value "rgb";
+}
+
+global proc shadeInterpCheck()
+{
+mtor control setvalue -rg shadingInterp	-value `checkBox -q -v shadeInterpCheck`;
+}
+
+global proc bDiceCheck()
+{
+mtor control setvalue -rg binaryDice -value `checkBox -q -v bDiceCheck`;
+}
+
+global proc dofCheck()
+{
+int $v = `checkBox -q -v dofCheck`;
+
+checkBox -edit -en $v focLookAtCheck;
+
+if(!$v)
+	{
+		checkBox -edit -v 0 focLookAtCheck;
+		mtor control setvalue -rg dofUseLookat -value 0;
+	}
+
+mtor control setvalue -rg doDOF  -value $v;	
+}
+
+global proc focLookAtCheck()
+{
+mtor control setvalue -rg dofUseLookat -value `checkBox -q -v focLookAtCheck`;	
+}
+
+global proc mBlurCheck()
+{
+int $v = `checkBox -q -v mBlurCheck`;
+
+if(!$v)
+	{
+		checkBox -edit -v 0 subMoCheck;
+		checkBox -edit -v 0 camBlurCheck;
+		
+		mtor control setvalue -rg blurSubframe -value 0;
+		mtor control setvalue -rg blurCamera -value 0;
+	}
+
+intFieldGrp -edit -en $v camShutterField;
+checkBox -edit -en $v subMoCheck;
+checkBox -edit -en $v camBlurCheck;
+optionMenuGrp -edit -en $v shutTimeList;
+optionMenuGrp -edit -en $v shutConfigList;
+	
+mtor control setvalue -rg doMotionBlur -value $v;	
+}
+
+global proc subMoCheck()
+{
+mtor control setvalue -rg blurSubframe -value `checkBox -q -v subMoCheck`;	
+}
+
+global proc camBlurCheck()
+{
+mtor control setvalue -rg blurCamera -value `checkBox -q -v camBlurCheck`;	
+}
+
+global proc changeShutterTime()
+{
+string $return;
+int $v = `optionMenuGrp -q -sl shutTimeList`;
+
+if($v)
+	$return = "frameOpen";
+
+if($v == 2)
+	$return = "frameCenter";
+
+if($v == 3)
+	$return = "frameClose";
+
+mtor control setvalue -rg shutterTiming -value $return;
+}
+
+global proc changeShutterConfig()
+{
+mtor control setvalue -rg shutterConfig -value `optionMenuGrp -q -v shutConfigList`;	
+}
+
+global proc frontPlaneCheck()
+{
+mtor control setvalue -rg frontPlane  -value `checkBox -q -v frontPlaneCheck`;	
+}
+
+global proc backPlaneCheck()
+{
+mtor control setvalue -rg frontPlane  -value `checkBox -q -v backPlaneCheck`;	
+}
+
+global proc traceEn()
+{
+int $v = `checkBox -q -v traceEn`;
+
+mtor control setvalue -rg rayTrace -value $v;
+
+floatFieldGrp -edit -en $v traceBreadthField;
+floatFieldGrp -edit -en $v traceDepthField;
+
+floatFieldGrp -edit -en $v  maxRayField;
+floatFieldGrp -edit -en $v  specRayField;
+}
+
+global proc changeStartFrame()
+{
+float $v = `floatFieldGrp -q -v1 startFrameField`;
+
+mtor control setvalue -rg computeStart -value $v;
+mtor control setvalue -rg sequenceStart -value $v;
+}
+
+global proc changeEndFrame()
+{
+float $v = `floatFieldGrp -q -v1 endFrameField`;
+
+mtor control setvalue -rg computeStop -value $v;
+mtor control setvalue -rg sequenceStop -value $v;
+}
+
+global proc traceDisCheck()
+{
+mtor control setvalue -rg traceDisplacements -value `checkBox -q -v traceDisCheck`;	
+}
+
+global proc sampMotionCheck()
+{
+mtor control setvalue -rg traceSampleMotion -value `checkBox -q -v sampMotionCheck`;	
+}
+
+global proc computeMapCheck()
+{
+string $computeValue;
+int $v = `checkBox -q -v computeMapCheck`;
+
+if(!$v)
+	$computeValue = "ignore";
+
+if($v)
+	$computeValue = "use";
+
+mtor control setvalue -rg computedMaps -value $computeValue;
+}
+
+global proc namePRmanPreset()
+{
+string $v = `promptDialog
+				-m "Please enter a name"
+				-t "Preset Name"
+				-b "OK"
+				-b "Cancel"
+				-db "OK"
+			`;
+
+if($v == "OK")
+	{
+		string $name = `promptDialog -q`;
+		checkPresetName $name;
+	}
+}
+
+global proc checkPresetName(string $name)
+{
+if(!`size($name)`)
+	error "Please enter a name";
+
+if($name == "atlasDefault")
+	error "Preset cannot be named \"atlasDefault\"";
+
+if($name == "default" || $name == "Default")
+	error "Preset cannot be named \"Default\"";
+
+string $multiChar[];
+string $testName = $name + "test";
+tokenize $testName " !@#$%^&*(){}[]-_=+':;,.<>?/" $multiChar;
+$numWords = `size($multiChar)`;
+
+if($numWords > 1)
+	error "Please remove the symble from your character name \" !@#$%^&*(){}[]-_=+':;,.<>?/\"";
+
+string $scriptPath = `internalVar -uad`;
+$fileExists = `filetest -r ($scriptPath + "AtlasPresets/" + $name + ".kgn")`;
+if($fileExists)
+	fileOverWrite $name;
+
+else
+	savePreset $name 1;
+}
+
+global proc fileOverWrite(string $name)
+{
+string $confirm = `confirmDialog
+					-t "Overwrite Preset"
+					-m ("Are you sure you want to overwrite " + $name)
+					-b "Yes"
+					-b "No"
+					-db "Yes"
+					`;
+
+if($confirm == "Yes")
+	savePreset $name 1;
+
+else
+	namePRmanPreset;
+}
+
+global proc savePreset(string $presetName, int $v)
+{
+string $file = `internalVar -uad` + "AtlasPresets/" + $presetName + ".kgn";
+
+int $fileID = `fopen $file "w"`;
+mtor control getvalue -sync;
+
+string $mtorCommands[];
+$mtorCommands = `returnMTORvalues`;
+
+for($each in $mtorCommands)
+	fprint $fileID (`mtor control getvalue -rg $each` + "\n");
+
+fclose $fileID;
+
+if($v)
+	{
+		menuItem -p loadMenu -l $presetName ($presetName + "loadMenu");
+		menuItem -p deleteMenu -l $presetName -c ("deletePRmanPreset " + $presetName) ($presetName + "deleteMenu");
+		menuItem -p preferredMenu -cb 0 -l $presetName ($presetName + "setDefaultMenu");
+		
+		print ("File saved to: " + $file + "\n");
+	}
+}
+
+global proc deletePRmanPreset(string $name)
+{
+string $file = `internalVar -uad` + "AtlasPresets/" + $name + ".kgn";
+
+string $confirm = `confirmDialog
+					-t "Delete Preset"
+					-m ("Are you sure you want to delete " + $name)
+					-b "Yes"
+					-b "No"
+					-db "Yes"
+					`;
+
+if($confirm == "Yes")
+	{
+		sysFile -delete $file;
+		
+		if(`menuItem -q -cb ($name + "setDefaultMenu")`)
+			{
+				optionVar -stringValue "atlasPreset" "atlasDefault";
+				menuItem -edit -cb 1 "atlasDefaultsetDefaultMenu";
+				setDefaultPreset;
+			}
+			
+		deleteUI ($name + "loadMenu");
+		deleteUI ($name + "deleteMenu");
+		deleteUI ($name + "setDefaultMenu");
+	}
+}
+
+global proc loadPRmanPresets(string $presetName)
+{
+string $content[];
+string $file = `internalVar -uad` + "AtlasPresets/" + $presetName + ".kgn";
+
+string $mtorCommands[];
+$mtorCommands = `returnMTORvalues`;
+		
+int $fileRead = `fopen $file "r"`;
+string $fileContent = `fgetline $fileRead`;
+    while (`size($fileContent)` > 0 ) 
+		{
+			$content[`size($content)`] = $fileContent;
+	    	$fileContent = `fgetline $fileRead`;
+    	}
+		
+for($i=0; $i<`size($mtorCommands)`; $i++)
+	{
+		string $removeReturn[];
+		tokenize $content[$i] "\n" $removeReturn;
+		
+		mtor control setvalue -rg $mtorCommands[$i] -value $removeReturn[0];
+	}
+PRmanRenderGlobals;
+}
+
+global proc string[] returnMTORvalues()
+{
+string $mtorCommands[]=
+	{
+		"dspyName",
+		"dspyServer",
+		"dspyServerMode",
+		"doAnim",
+		"computeStart",
+		"computeStop",
+		"computeBy",
+		"animFPS",
+		"objectsOnly",
+		"lightsOnly",
+		"camName",
+		"doDOF",
+		"dofUseLookat",
+		"doMotionBlur",
+		"blurSubframe",
+		"blurCamera",
+		"shutterAngle",
+		"shutterTiming",
+		"shutterConfig",
+		"frontPlane",
+		"backPlane",
+		"renderer",
+		"customRenderer",
+		"dspyRez",
+		"jobCleanup",
+		"shadingRate",
+		"pixelSamplesX",
+		"pixelSamplesY",
+		"pixelFilter",
+		"pixelSamplesY",
+		"filterWidthX",
+		"filterWidthY",
+		"shadingInterp",
+		"binaryDice",
+		"rayTrace",
+		"traceBreadthSampleFactor",
+		"traceDepthSampleFactor",
+		"traceMaxDepth",
+		"traceSpecularThreshold",
+		"traceMaxSpecularDepth",
+		"traceMaxDiffuseDepth",
+		"traceDisplacements",
+		"traceSampleMotion",
+		"traceBias",
+		"irradianceMaxError",
+		"irradianceMaxPixelDist",
+		"irradianceHandle",
+		"irradianceFileMode",
+		"photonShadingModel",
+		"photonCausticMap",
+		"photonGlobalMap",
+		"photonEstimator",
+		"computedMaps",
+		"lazyCompute",
+		"shadowBias"
+	};
+		
+return $mtorCommands;
+}
+
+global proc string[] returnDefaultSettings()
+{
+string $default[]=
+	{
+		"untitled",
+		"it",
+		"rgba",
+		"0",
+		"1",
+		"24",
+		"1",
+		"24",
+		"0",
+		"0",
+		"perspShape",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"90",
+		"frameOpen",
+		"moving",
+		"0",
+		"0",
+		"render",
+		"notepad",
+		"640 480",
+		"rib tex map", 
+		"5",
+		"3",
+		"3",
+		"separable-catmull-rom",
+		"3",
+		"2",
+		"2",
+		"1",
+		"0",
+		"0",
+		"1",
+		"1",
+		"10",
+		"10",
+		"2",
+		"1",
+		"1",
+		"0",
+		"0.05",
+		"-1",
+		"-1",
+		"[irradiancecache global]",
+		"ignore",
+		"matte",
+		"",
+		"",
+		"50",
+		"use",
+		"off",
+		"0"
+	};
+		
+return $default;
+}
+
+global proc setDefaultPreset()
+{
+string $default[];
+string $mtorCommands[];
+
+$mtorCommands = `returnMTORvalues`;
+$default = `returnDefaultSettings`;
+	
+for($i=0; $i<`size($mtorCommands)`; $i++)
+	mtor control setvalue -rg $mtorCommands[$i] -value $default[$i];
+
+PRmanRenderGlobals;
+}
+
+global proc int checkBeforeOverwritingSettings()
+{
+int $return;
+string $default[];
+string $mtorCommands[];
+
+$mtorCommands = `returnMTORvalues`;
+$default = `returnDefaultSettings`;
+
+		
+for($i=0; $i<`size($default)`; $i++)
+	{
+		if ($mtorCommands[$i] == $default[$i]);
+		else
+			{
+				$return = 1;
+				break;
+			}
+	}
+
+return $return;
+}
+
+global proc PRmanInMayaRenderview()
+{
+RenderViewWindow;
+
+string $dspyServer = `mtor control getvalue -rg dspyServer`;
+mtor control setvalue -rg dspyServer -value mayaiff;
+
+string $dspyName = `mtor control getvalue -rg dspyName`;
+string $image = `workspace -q -rd` + "rmanpix/" + $dspyName + "." + `findFrameBuffer` + ".iff";
+
+if(`filetest -r $image`)
+	sysFile -del $image;
+
+mtor RenderSpool;
+
+int $i=1;
+while ($i>0)
+	{
+		print "Rendering with RenderMan...\n";
+		if(`filetest -r $image`)
+			{
+				$i=0;
+				renderWindowEditor -edit -loadImage $image renderView;	
+			}
+		pause -sec 2;
+	}
+	
+mtor control setvalue -rg dspyServer -value $dspyServer;
+print "Render Complete";
+}
+
+global proc string findFrameBuffer()
+{
+	string $return;
+	float $time = `currentTime -q`;
+	string $frameNum = `round $time`;
+	int $size = 4-`size($frameNum)`;
+	
+	for($i=0; $i<$size; $i++)
+		$return += "0";
+	$return += $frameNum;
+	
+	return $return;
+}
+
+global proc int round(float $n)
+{
+	int $return;
+	int $floor = `floor $n`;
+	float $remainder = $n-$floor;
+	
+	$return = $floor;
+	
+	if($remainder>=0.5 && $n>0)
+		$return = $floor + 1;
+	
+	return $return;
+}

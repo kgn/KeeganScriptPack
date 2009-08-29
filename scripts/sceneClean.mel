@@ -1,0 +1,38 @@
+//Keegan
+//Scene Clean
+//sceneClean
+//none
+//sceneClean
+//utility
+/*
+Author: David Keegan (eyelink@sbcglobal.net)
+Copyright (C) 2004 David Keegan
+www.keegan3d.com
+
+Version: 2.0
+
+Last Updated:(06-22-2005)
+
+Install:
+	1. Move sceneClean.mel to your Maya scripts directory.
+	2. Launch Maya.
+	3. Type "sceneClean" into Maya's command line.
+
+All code and icons created by David Keegan.
+Use and/or modify at your own risk.
+*/
+
+global proc sceneClean()
+{
+for($each in `ls -as`)
+	{
+		select -hi $each;
+		string $sel[] = `ls -sl`;
+		
+		if(`nodeType $sel[size($sel)-1]` == "joint")
+			continue;
+		
+		if(`nodeType $sel[size($sel)-1]` == "transform")
+			delete $each;
+	}
+}
