@@ -30,11 +30,6 @@ Update:
 	now a scroll layout allowing the interface to remain small 
 	but still contain multiple nodes.  I have also included a 
 	shelf button.
-
-All code and icons created by David Keegan.
-Use and/or modify at your own risk.
-Code and/or icons may not be distributed, in part or in whole, 
-with out consent from David Keegan.
 */
 
 global proc globalSmooth()

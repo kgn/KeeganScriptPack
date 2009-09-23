@@ -17,9 +17,6 @@ Install:
 	1. Move sceneClean.mel to your Maya scripts directory.
 	2. Launch Maya.
 	3. Type "sceneClean" into Maya's command line.
-
-All code and icons created by David Keegan.
-Use and/or modify at your own risk.
 */
 
 global proc sceneClean()

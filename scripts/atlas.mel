@@ -33,8 +33,6 @@ History:
 		
 History:
 	2.5 - Images can now be rendered and display in the Maya Render View.
-	
-Use and/or modify at your own risk.
 */
 
 global proc atlas()

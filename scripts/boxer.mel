@@ -14,9 +14,7 @@ Install
 	2. Type "boxer" into Maya's command line.
 	
 History:
-v.2.1: Added round function to make the "Override" values more accurate.
-
-Use and/or modify at your own risk.
+	v.2.1: Added round function to make the "Override" values more accurate.
 */
 
 global proc boxer()

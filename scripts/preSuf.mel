@@ -20,12 +20,7 @@ Installation:
 	your icons directory.
 	
 Synopsis:
-Allows the user to add prefixes and suffixes tto selected attributes.
-
-All code and icons created by David Keegan.
-Use and/or modify at your own risk.
-Code and/or icons may not be distributed, in part or in whole, 
-with out consent from David Keegan.
+	Allows the user to add prefixes and suffixes tto selected attributes.
 */
 
 global proc preSuf()

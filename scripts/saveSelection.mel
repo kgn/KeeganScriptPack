@@ -36,11 +36,6 @@ Install
 	
 	To be used with the Keegan Installer move keeganShelf to 
 	your icons directory.
-
-All code and icons created by David Keegan.
-Use and/or modify at your own risk.
-Code and/or icons may not be distributed, in part or in whole, 
-with out consent from David Keegan.
 */
 
 global proc saveSelection()

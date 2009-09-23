@@ -39,11 +39,6 @@ Update:
 	2.5:Added "Auto Rename". If on the resulting blendshapes will be 
 		automatically rename.  Ex. "Right_Smerk" will become "Left_Smerk" and the 
 		resulting combined shape will drop the direction name "Smerk".
-
-All code and icons created by David Keegan.
-Use and/or modify at your own risk.
-Code and/or icons may not be distributed, in part or in whole,
-with out consent from David Keegan.
 */
 
 global proc flipShape()

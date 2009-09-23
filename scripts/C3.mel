@@ -42,11 +42,6 @@ History:
 		-In pane mode the interface contains a channel box and layer editor.
 		-Multi-Select button added, allowing the user to select multiple
 		controls simultaneously.
-	
-All code and icons created by David Keegan. 
-Use and/or modify at your own risk.  
-Code and/or icons may not be distributed, in part or in whole, 
-with out consent from David Keegan.
 */
 
 global proc C3()

@@ -31,11 +31,6 @@ History:
 	moved based on their position not from 0 0 0;
 	v3.0 - Fixed a bug that caused objects to be moved
 	incorrectly when away from 0 0 0.
-
-All code and icons created by David Keegan.
-Use and/or modify at your own risk.
-Code and/or icons may not be distributed, in part or in whole, 
-with out consent from David Keegan.
 */
 
 

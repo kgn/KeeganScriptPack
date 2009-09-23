@@ -25,11 +25,6 @@ Synopsis:
 	selected from the list.  Double clicking a sound in the list will 
 	display the sounds attribute editor, and pressing the delete key 
 	will delete the sound from the scene.
-
-All code and icons created by David Keegan.
-Use and/or modify at your own risk.
-Code and/or icons may not be distributed, in part or in whole, 
-with out consent from David Keegan.
 */
 
 global proc soundManager()

@@ -26,11 +26,6 @@ Function: Indirect Parent allows for the face joint to be
 	they can easily be turned off. To use this script: select 
 	all the face joints then the joint to be parented to and 
 	run the script. The locators are names based on the joints.
-	
-All code and icons created by David Keegan.
-Use and/or modify at your own risk.
-Code and/or icons may not be distributed, in part or in whole, 
-with out consent from David Keegan.
 */
 
 global proc indirectParent()

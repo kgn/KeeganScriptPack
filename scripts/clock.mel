@@ -33,11 +33,6 @@ button will toggle the clock on and off.
 The military or standard options change how the hours are 
 displayed. In military mode the time ranges from 0 to 23:59.59, 
 and standard the range is 1 to 12:59.59.
-
-All code and icons created by David Keegan.
-Use and/or modify at your own risk.
-Code and/or icons may not be distributed, in part or in whole, 
-with out consent from David Keegan.	
 */
 
 global proc clock()

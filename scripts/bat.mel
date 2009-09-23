@@ -16,9 +16,7 @@ Function: Bat searches directories for rib sequences and
 Install 
 	1. Move bat.mel to you're Maya scripts directory.
 	2. Move KeeganMan to you're icons directory.
-	2. Type "bat" into Maya's command line.
-
-Use and/or modify at your own risk.
+	3. Type "bat" into Maya's command line.
 */
 
 global proc bat()
