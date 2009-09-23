@@ -8,8 +8,7 @@
 Masquerade Beta Version 1.0
 Copyright (C) 2004 David Keegan
 	
-Author: David Keegan (eyelink@sbcglobal.net)
-www.keegan3d.com
+Author: David Keegan (keegan3d@gmail.com)
 
 Creation Date:(12/22/03)
 Last Updated:(06-01-04)
@@ -6765,7 +6764,7 @@ window -tb 0 -s 0 aboutMaskUI;
 frameLayout -lv 0;
 	columnLayout -adj 1;
 		picture -en 0 -i ($imagepath + "startScreen.bmp");
-		text -al center "\nMasquerade v1.0 Beta By David Keegan\nCopyright David Keegan 2004\nwww.keegan3d.com";
+		text -al center "\nMasquerade v1.0 Beta By David Keegan\nCopyright David Keegan 2004\nkeegan3d@gmail.com";
 		separator -st "none" -h 2; 
 		rowLayout -cl2 left center -nc 2 -cw2 80 $w;
 			text " ";

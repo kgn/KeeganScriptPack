@@ -5,9 +5,8 @@
 //attrWindow
 //menu
 /*
-Author: David Keegan (eyelink@sbcglobal.net)
+Author: David Keegan (keegan3d@gmail.com)
 Copyright (C) 2004 David Keegan
-www.keegan3d.com
 
 Version: 4.0
 
@@ -399,7 +398,7 @@ for($a=0; $a<(`size($transAttr)`-1); $a++)
 
 tokenize $transAttr[0] "." $attrBD;
 
-string $header = "//attrWindow By David Keegan\n//E-mail David at eyelink@sbcglobal.net\n//www.keegan3d.com\n\n{\n";
+string $header = "//attrWindow By David Keegan\n//E-mail David at keegan3d@gmail.com\n//keegan3d@gmail.com\n\n{\n";
 string $winCall = "shelfCallAttrWindow;\n\n";
 string $attrString = "string $attrList[] =\n\t{" + $attrList + "\n\t\t\"" + $attr + "\"\n\t};";
 string $attrMin = "\n\nfloat $attrListMin[] =\n\t{" + $attrListMin + "\n\t\t" + $min + "\n\t};";
