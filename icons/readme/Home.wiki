@@ -1,0 +1,166 @@
+== RenderMan ==
+=== [[http://www.keegan3d.com/renderman/mel/atlas.htm|Atlas]] === 
+{{atlas.gif}}
+Maya style render globals for MTOR.
+
+=== [[http://www.keegan3d.com/renderman/mel/bat.htm|Bat]] === 
+{{bat.gif}}
+Creates bat files to render RIB sequences.
+
+=== [[http://www.keegan3d.com/renderman/mel/boxer.htm|Boxer]] ===
+{{boxer.gif}}
+Aids in creating RIB boxes.
+
+== Rigging ==
+=== Show Affected Vertices ===
+{{showAffectedVert.gif}}
+See exactly which vertices are affected by a joint .
+
+=== Joint to Vertex ===
+{{jointToVertex.gif}}
+Creates a joint for every selected vertex.
+
+=== Look At ===
+{{lookAt.gif}}
+Create a "look at control".
+
+=== Indirect Parent ===
+{{indirectParent.gif}}
+Indirectly parent bones so that the connecting joint is not created.
+
+=== Set Driven Pose ===
+{{setDrivenPose.gif}}
+Quickly and easily create set driven keys.
+
+=== Attribute Delete ===
+{{attrDelete.gif}}
+Makes selected attributes un-keyable and locked.
+
+=== Joint Orient ===
+{{jointOrient.gif}}
+Re-orientate joints.
+
+=== Curve Decompiler ===
+{{curveDecompiler.gif}}
+Output code to rebuild selected curves.
+
+=== Button Maker ===
+{{buttonMaker.gif}}
+Creates a locator that rides on a face.
+
+=== Parent Under Shape ===
+{{parentUnderShape.gif}}
+Parent selected objects under one shape node.
+
+== Utility ==
+=== Clock ===
+{{clock.gif}}
+Creates a cool clock display for Maya.
+
+=== Shelf Button Maker ===
+{{shelfButtonMaker.gif}}
+Quickly and easily create custom shelf buttons.
+
+=== Google Search ===
+{{googleSearch.gif}}
+Launch Google search from Maya.
+
+=== Import All ===
+{{importAll.gif}}
+Import all OBJs from a designated directory.
+
+=== Scene Clean ===
+{{sceneClean.gif}}
+Delete all groups that contain nothing.
+
+=== Tear Off Shelf ===
+{{tearOffShelf.gif}}
+Window containing all shelf tabs and buttons.
+
+=== Attribute Window ===
+{{attrWindow.gif}}
+Builds a window with sliders connected attributes.
+
+=== Sound Manager ===
+{{soundManager.gif}}
+Manage sound files in the scene.
+
+=== Reverse Selection ===
+{{reverseSelection.gif}}
+Reverses the selection order.
+
+=== Kill Scene ===
+{{killScene.gif}}
+Delete everything in the scene, but maintain all settings.
+
+== Modeling ==
+=== Auto Weld ===
+{{autoWeld.gif}}
+Quickly merge vertices by selecting them.
+
+=== Global Smooth ===
+{{globalSmooth.gif}}
+Change the all the smooth nodes in the scene.
+
+=== Poly/Sub-D Switcher ===
+{{polySubSwitcher.gif}}
+Toggles between Sub-D and poly.
+
+=== Poly Ring ===
+{{polyRing.gif}}
+Creates a ring of polygons.
+
+=== Restore Shape ===
+{{restoreShape.gif}}
+Transfer vertex positions between two objects.
+
+=== Move Vertex ===
+{{moveVertex.gif}}
+Align vertices.
+
+=== Flip Shape ===
+{{flipShape.gif}}
+Flip blendshapes.
+
+=== Blendshape Editor ===
+{{blendshapeEditor.gif}}
+Propagate changes to all blendshapes.
+
+=== Move Each ===
+{{moveEach.gif}}
+Incremental move selected objects.
+
+== Animation ==
+=== C3 -- Custom Character Control ===
+{{C3.gif}}
+Create custom character control interfaces.
+
+=== Masquerade ===
+{{Masquerade.gif}}
+Masquerade is a powerful facial animation tool.
+
+=== Deform Key Frames ===
+{{deformKey.gif}}
+Allow user to convert key frame data to curves.
+
+=== Time/Frame Converter ===
+{{TFconverter.gif}}
+Convert time to frames and vise versa.
+
+== Texturing ==
+=== Random Texture Application ===
+{{randTexApp.gif}}
+Randomly assign designated shaders to selected objects.
+
+=== Reload Texture ===
+{{reloadTextures.gif}}
+Reloads texture files in the scene.
+
+=== Cubic UV Map ===
+{{cubicMap.gif}}
+Generates UVs in a cubic layout based on surface normals.
+
+== Game ==
+=== Mine Sweeper ===
+{{mineSweeper.gif}}
+Play the classic game of mine sweeper inside Maya.
